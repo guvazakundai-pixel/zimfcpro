@@ -27,12 +27,12 @@ export function BottomNav() {
       aria-label="Primary"
       className="fixed bottom-0 inset-x-0 z-50 pb-[env(safe-area-inset-bottom)]"
     >
-      <div className="mx-auto max-w-lg px-3 pb-3 pt-1">
+      <div className="mx-auto max-w-lg px-2 pb-2 pt-1">
         <LayoutGroup>
           <div
-            className="flex items-center justify-around rounded-[28px] px-2 py-1.5"
+            className="flex items-center justify-around rounded-[24px] px-1.5 py-1"
             style={{
-              background: "rgba(8,8,10,0.92)",
+              background: "rgba(8,8,10,0.94)",
               backdropFilter: "blur(40px) saturate(1.8)",
               WebkitBackdropFilter: "blur(40px) saturate(1.8)",
               border: "1px solid rgba(255,255,255,0.04)",
@@ -46,13 +46,13 @@ export function BottomNav() {
                 key={href}
                 href={href}
                 className={
-                  "touch-snap-subtle relative flex flex-col items-center justify-center gap-0.5 py-2 px-3 rounded-[14px] transition-colors duration-150 group " +
+                  "touch-snap-subtle relative flex flex-col items-center justify-center gap-0 py-2.5 px-3 sm:px-4 rounded-[14px] transition-colors duration-150 group min-w-0 " +
                   (active ? "" : "")
                 }
               >
                 <span
                   className={
-                    "h-[18px] w-[18px] grid place-items-center transition-colors duration-150 " +
+                    "h-[20px] w-[20px] grid place-items-center transition-colors duration-150 " +
                     (active ? "text-accent" : "text-muted-soft group-hover:text-ink-soft group-active:text-accent")
                   }
                 >
@@ -60,7 +60,7 @@ export function BottomNav() {
                 </span>
                 <span
                   className={
-                    "text-[9px] font-bold uppercase tracking-[0.18em] transition-colors duration-150 " +
+                    "text-[8px] font-bold uppercase tracking-[0.16em] transition-colors duration-150 mt-0.5 " +
                     (active ? "text-accent" : "text-muted-faint group-hover:text-muted-soft group-active:text-accent")
                   }
                 >
@@ -70,7 +70,7 @@ export function BottomNav() {
                   <motion.span
                     layoutId="nav-indicator"
                     aria-hidden
-                    className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 h-[3px] min-w-[22px] rounded-full"
+                    className="absolute -bottom-0 left-1/2 -translate-x-1/2 h-[2.5px] min-w-[20px] rounded-full"
                     style={{
                       background: "var(--accent)",
                       boxShadow: "0 0 12px rgba(0,255,133,0.4), 0 0 4px rgba(0,255,133,0.2)",
@@ -84,11 +84,11 @@ export function BottomNav() {
           {loggedIn ? (
             <Link
               href="/dashboard"
-              className="touch-snap-subtle relative flex flex-col items-center justify-center gap-0.5 py-2 px-3 rounded-[14px] transition-colors duration-150 group"
+              className="touch-snap-subtle relative flex flex-col items-center justify-center gap-0 py-2.5 px-3 sm:px-4 rounded-[14px] transition-colors duration-150 group min-w-0"
             >
               <span
                 className={
-                  "h-[18px] w-[18px] grid place-items-center transition-colors duration-150 " +
+                  "h-[20px] w-[20px] grid place-items-center transition-colors duration-150 " +
                   (pathname.startsWith("/dashboard") ? "text-accent" : "text-muted-soft group-hover:text-ink-soft group-active:text-accent")
                 }
               >
@@ -96,7 +96,7 @@ export function BottomNav() {
               </span>
               <span
                 className={
-                  "text-[9px] font-bold uppercase tracking-[0.18em] transition-colors duration-150 " +
+                  "text-[8px] font-bold uppercase tracking-[0.16em] transition-colors duration-150 mt-0.5 " +
                   (pathname.startsWith("/dashboard") ? "text-accent" : "text-muted-faint group-hover:text-muted-soft group-active:text-accent")
                 }
               >
@@ -106,7 +106,7 @@ export function BottomNav() {
                 <motion.span
                   layoutId="nav-indicator"
                   aria-hidden
-                  className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 h-[3px] min-w-[22px] rounded-full"
+                  className="absolute -bottom-0 left-1/2 -translate-x-1/2 h-[2.5px] min-w-[20px] rounded-full"
                   style={{
                     background: "var(--accent)",
                     boxShadow: "0 0 12px rgba(0,255,133,0.4), 0 0 4px rgba(0,255,133,0.2)",
@@ -118,12 +118,12 @@ export function BottomNav() {
           ) : (
             <button
               onClick={() => openAuth("signin")}
-              className="touch-snap-subtle relative flex flex-col items-center justify-center gap-0.5 py-2 px-3 rounded-[14px] transition-colors duration-150 group"
+              className="touch-snap-subtle relative flex flex-col items-center justify-center gap-0 py-2.5 px-3 sm:px-4 rounded-[14px] transition-colors duration-150 group min-w-0"
             >
-              <span className="h-[18px] w-[18px] grid place-items-center text-muted-soft group-hover:text-ink-soft group-active:text-accent transition-colors duration-150">
+              <span className="h-[20px] w-[20px] grid place-items-center text-muted-soft group-hover:text-ink-soft group-active:text-accent transition-colors duration-150">
                 <UserIcon />
               </span>
-              <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-muted-faint group-hover:text-muted-soft group-active:text-accent transition-colors duration-150">
+              <span className="text-[8px] font-bold uppercase tracking-[0.16em] text-muted-faint group-hover:text-muted-soft group-active:text-accent transition-colors duration-150 mt-0.5">
                 Me
               </span>
             </button>

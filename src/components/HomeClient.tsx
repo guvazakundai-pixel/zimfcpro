@@ -187,7 +187,7 @@ function HeroSection({
       />
 
       <motion.div style={{ y: heroY, opacity: heroOpacity }} className="w-full">
-        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pt-20 sm:pt-28 pb-16 sm:pb-20">
+        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pt-16 sm:pt-28 pb-12 sm:pb-20">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -210,17 +210,20 @@ function HeroSection({
             className="break-words"
             style={{ lineHeight: 0.88 }}
           >
-            <span className="cinematic-heading block text-[3.2rem] sm:text-7xl md:text-8xl lg:text-9xl text-ink">
+            <span className="cinematic-heading block text-[2.8rem] sm:text-6xl md:text-7xl lg:text-8xl text-ink-soft">
               THE ROAD TO
             </span>
             <span className="cinematic-heading block text-[3.2rem] sm:text-7xl md:text-8xl lg:text-9xl">
               <span className="text-gradient-accent">FC PRO</span>
             </span>
-            <span className="cinematic-heading block text-[2.8rem] sm:text-6xl md:text-7xl lg:text-8xl text-ink-soft mt-1 sm:mt-2">
+            <span className="cinematic-heading block text-[2.4rem] sm:text-5xl md:text-6xl lg:text-7xl text-ink-soft mt-1 sm:mt-2">
               STARTS IN
             </span>
-            <span className="cinematic-heading block text-[2.8rem] sm:text-6xl md:text-7xl lg:text-8xl">
+            <span className="cinematic-heading block text-[2.4rem] sm:text-5xl md:text-6xl lg:text-7xl">
               <span className="text-gradient-hero">ZIMBABWE.</span>
+            </span>
+            <span className="cinematic-heading block text-[1rem] sm:text-xl md:text-2xl lg:text-3xl text-ink/50 mt-4 sm:mt-5 font-bold tracking-wider">
+              ZW's Competitive FC Ecosystem
             </span>
           </motion.h1>
 
@@ -239,7 +242,7 @@ function HeroSection({
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.75, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-4 text-[13px] sm:text-sm text-muted-soft italic"
+            className="mt-4 text-[13px] sm:text-sm text-muted-soft"
           >
             Are you ready to dominate the ZW scene, or will you be left behind?
           </motion.p>
@@ -248,41 +251,50 @@ function HeroSection({
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.95 }}
-            className="mt-10 sm:mt-12"
+            className="mt-8 sm:mt-10"
           >
-            <div className="frosted-card p-6 sm:p-8 rounded-[28px] relative overflow-hidden card-interactive card-glow-line">
+            <div className="frosted-card p-5 sm:p-7 rounded-[24px] sm:rounded-[28px] relative overflow-hidden card-glow-line">
               <div
                 aria-hidden
-                className="pointer-events-none absolute inset-0 opacity-30"
-                style={{ background: "radial-gradient(400px 200px at 30% 50%, rgba(0,230,118,0.12), transparent 70%)" }}
-              />
-              <motion.div
-                aria-hidden
-                className="pointer-events-none absolute -inset-[1px] rounded-[28px] opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                style={{
-                  background: "linear-gradient(135deg, rgba(0,255,133,0.08), transparent 40%, transparent 60%, rgba(34,211,238,0.06))",
-                }}
+                className="pointer-events-none absolute inset-0"
+                style={{ background: "radial-gradient(400px 200px at 30% 50%, rgba(0,230,118,0.10), transparent 70%)" }}
               />
               <div className="relative z-10">
-                <p className="cinematic-heading text-lg sm:text-xl text-ink tracking-tight">
+                <p className="cinematic-heading text-base sm:text-lg md:text-xl text-ink tracking-tight">
                   Claim Your Rank. Rule Zimbabwe.
                 </p>
-                <p className="mt-2 text-[13px] text-muted-soft">
+                <p className="mt-1.5 text-[12px] sm:text-[13px] text-muted-soft">
                   Create your account and begin your climb up the ZW leaderboard.
                 </p>
-                <div className="mt-5 flex flex-wrap gap-3">
+
+                {/* Progression bar — visual cue for rank tiers */}
+                <div className="mt-4 mb-4">
+                  <div className="flex items-center justify-between text-[8px] font-bold uppercase tracking-[0.15em] text-muted-faint mb-1.5">
+                    <span>Rookie</span>
+                    <span className="text-accent">Elite</span>
+                  </div>
+                  <div className="xp-bar">
+                    <div className="xp-bar-fill" style={{ width: '0%' }} />
+                  </div>
+                  <div className="flex items-center justify-between text-[7px] text-muted-faint mt-1">
+                    <span className="text-muted-faint">Div VII</span>
+                    <span className="text-accent/60">Div I</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2.5">
                   <AuthModalCTA
                     tab="join"
-                    className="btn-primary inline-flex items-center justify-center h-12 sm:h-14 px-8 sm:px-10 font-bold text-base sm:text-lg tracking-wide"
+                    className="btn-primary inline-flex items-center justify-center h-11 sm:h-13 px-7 sm:px-9 font-bold text-sm sm:text-base tracking-wide"
                   >
-                    JOIN THE RANKS
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="ml-2 h-5 w-5">
+                    Join the Ranks
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="ml-2 h-4 w-4 sm:h-5 sm:w-5">
                       <path d="M5 12h14" /><path d="M13 5l7 7-7 7" />
                     </svg>
                   </AuthModalCTA>
                   <Link
                     href="/rankings"
-                    className="btn-ghost inline-flex items-center justify-center h-12 sm:h-14 px-8 sm:px-10 font-bold text-base sm:text-lg tracking-wide text-ink"
+                    className="btn-ghost inline-flex items-center justify-center h-11 sm:h-13 px-7 sm:px-9 font-bold text-sm sm:text-base tracking-wide text-ink"
                   >
                     View Rankings
                   </Link>
@@ -293,7 +305,7 @@ function HeroSection({
 
           {hasStats && (
             <>
-              <div className="mt-10 sm:mt-14 relative">
+              <div className="mt-8 sm:mt-12 relative">
                 <div
                   aria-hidden
                   className="absolute top-0 left-1/2 -translate-x-1/2 h-px w-3/4"
@@ -301,8 +313,13 @@ function HeroSection({
                     background: "linear-gradient(90deg, transparent, rgba(0,255,133,0.15), rgba(34,211,238,0.1), transparent)",
                   }}
                 />
-                <div className="pt-6 sm:pt-8">
-                  <StaggerContainer className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                <div className="pt-5 sm:pt-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-faint">ZW Season 1</span>
+                    <span className="text-border-strong text-[9px]">/</span>
+                    <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-accent">Live Stats</span>
+                  </div>
+                  <StaggerContainer className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
                     <StatCard label="Matches" value={totalMatches} icon="match" delay={0} />
                     <StatCard label="Goals" value={totalGoals} icon="goal" delay={0.06} />
                     <StatCard label="Players" value={playerCount} icon="player" delay={0.12} />
@@ -317,21 +334,21 @@ function HeroSection({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1.4 }}
-            className="flex justify-center mt-12"
+            className="flex justify-center mt-10 sm:mt-12"
           >
             <motion.div
-              animate={{ y: [0, 8, 0] }}
+              animate={{ y: [0, 6, 0] }}
               transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              className="flex flex-col items-center gap-1 text-muted-faint"
+              className="flex flex-col items-center gap-0.5 text-muted-faint"
             >
-              <span className="text-[8px] font-bold uppercase tracking-widest">Scroll</span>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+              <span className="text-[7px] font-bold uppercase tracking-[0.2em]">Scroll</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-3.5 h-3.5">
                 <path d="M12 5v14M19 12l-7 7-7-7" />
               </svg>
             </motion.div>
           </motion.div>
 
-          <div className="relative z-10 h-px mx-auto max-w-6xl mt-12" style={{ background: "linear-gradient(90deg, transparent, rgba(0,230,118,0.20), rgba(34,211,238,0.12), rgba(168,85,247,0.08), transparent)" }} />
+          <div className="relative z-10 h-px mx-auto max-w-6xl mt-10 sm:mt-12" style={{ background: "linear-gradient(90deg, transparent, rgba(0,230,118,0.20), rgba(34,211,238,0.12), rgba(168,85,247,0.08), transparent)" }} />
         </div>
       </motion.div>
     </section>
@@ -433,7 +450,7 @@ function StatCard({ label, value, icon, delay = 0 }: { label: string; value: num
 
 function CreateCTASection() {
   return (
-    <section className="relative py-12 sm:py-16">
+    <section className="relative py-10 sm:py-14">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
@@ -557,7 +574,7 @@ function HowItWorksSection() {
   ];
 
   return (
-    <section className="relative py-16 sm:py-20 overflow-hidden">
+    <section className="relative py-12 sm:py-18 overflow-hidden">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"

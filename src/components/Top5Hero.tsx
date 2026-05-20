@@ -145,13 +145,15 @@ export async function Top5Hero() {
                     {delta !== 0 && (
                       <span
                         className={
-                          "shrink-0 inline-flex items-center gap-0.5 text-[10px] font-black tabular-nums " +
-                          (delta > 0 ? "text-accent" : "text-negative")
+                          "shrink-0 inline-flex items-center gap-1 text-[10px] font-black tabular-nums px-1.5 py-0.5 rounded-[4px] " +
+                          (delta > 0
+                            ? "text-accent bg-accent/10 border border-accent/20"
+                            : "text-negative bg-negative/10 border border-negative/20")
                         }
                         aria-label={delta > 0 ? `Up ${delta}` : `Down ${Math.abs(delta)}`}
                       >
-                        <span aria-hidden>{delta > 0 ? "▲" : "▼"}</span>
-                        {Math.abs(delta)}
+                        <span aria-hidden className="text-[8px]">{delta > 0 ? "▲" : "▼"}</span>
+                        <span>{Math.abs(delta)}</span>
                       </span>
                     )}
                   </div>
