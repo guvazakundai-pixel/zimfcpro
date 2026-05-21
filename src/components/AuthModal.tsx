@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuthStore, type WelcomeData } from "@/store/auth-store";
 import { WelcomeOverlay } from "@/components/WelcomeOverlay";
 
-type Tab = "signin" | "join";
+type Tab = "signin" | "join" | "forgot" | "reset";
 
 const PLATFORMS = [
   { value: "PS5", label: "PlayStation 5" },
@@ -15,15 +15,20 @@ const PLATFORMS = [
 ] as const;
 
 export function AuthModal() {
-  const { open, tab: initialTab, closeAuth } = useAuthModal();
-  const [tab, setTab] = useState<Tab>(initialTab);
+  const { open, tab: initialTab, closeAuth, resetEmail: initialResetEmail } = useAuthModal();
+  const [tab, setTab] = useState<Tab>(initialTab as Tab);
   const backdropRef = useRef<HTMLDivElement>(null);
   const welcomeData = useAuthStore((s) => s.welcomeData);
   const setWelcomeData = useAuthStore((s) => s.setWelcomeData);
+  const [resetEmail, setResetEmail] = useState(initialResetEmail || "");
 
   useEffect(() => {
-    setTab(initialTab);
+    setTab(initialTab as Tab);
   }, [initialTab]);
+
+  useEffect(() => {
+    if (initialResetEmail) setResetEmail(initialResetEmail);
+  }, [initialResetEmail]);
 
   useEffect(() => {
     if (!open) return;
@@ -39,6 +44,8 @@ export function AuthModal() {
   }
 
   if (!open) return null;
+
+  const showTabs = tab === "signin" || tab === "join";
 
   return (
     <div
@@ -60,19 +67,35 @@ export function AuthModal() {
           boxShadow: "0 32px 80px rgba(0,0,0,0.50), 0 0 0 0.5px rgba(255,255,255,0.04) inset, 0 1px 0 rgba(255,255,255,0.06) inset",
         }}
       >
-        <div className="flex border-b border-white/[0.04]">
-          <TabButton active={tab === "signin"} onClick={() => setTab("signin")} label="Sign In" />
-          <TabButton active={tab === "join"} onClick={() => setTab("join")} label="Join" />
-          <button
-            onClick={closeAuth}
-            className="ml-auto px-5 text-[#6B6D78] hover:text-[#EDEDED] transition-colors duration-200"
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
+        {showTabs && (
+          <div className="flex border-b border-white/[0.04]">
+            <TabButton active={tab === "signin"} onClick={() => setTab("signin")} label="Sign In" />
+            <TabButton active={tab === "join"} onClick={() => setTab("join")} label="Join" />
+            <button
+              onClick={closeAuth}
+              className="ml-auto px-5 text-[#6B6D78] hover:text-[#EDEDED] transition-colors duration-200"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        {!showTabs && (
+          <div className="flex justify-end border-b border-white/[0.04]">
+            <button
+              onClick={closeAuth}
+              className="px-5 py-3.5 text-[#6B6D78] hover:text-[#EDEDED] transition-colors duration-200"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         <div className="p-6">
-          {tab === "signin" ? <SignInForm onClose={closeAuth} /> : <JoinForm onClose={closeAuth} />}
+          {tab === "signin" && <SignInForm onClose={closeAuth} onForgotPassword={() => setTab("forgot")} />}
+          {tab === "join" && <JoinForm onClose={closeAuth} />}
+          {tab === "forgot" && <ForgotPasswordForm onBack={() => setTab("signin")} onSuccess={(email) => { setResetEmail(email); setTab("reset"); }} />}
+          {tab === "reset" && <ResetPasswordForm email={resetEmail} onBack={() => setTab("forgot")} onSuccess={() => setTab("signin")} />}
         </div>
       </div>
     </div>
@@ -96,7 +119,7 @@ function TabButton({ active, onClick, label }: { active: boolean; onClick: () =>
   );
 }
 
-function SignInForm({ onClose }: { onClose: () => void }) {
+function SignInForm({ onClose, onForgotPassword }: { onClose: () => void; onForgotPassword: () => void }) {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -137,6 +160,180 @@ function SignInForm({ onClose }: { onClose: () => void }) {
       <FieldInput label="Password" type="password" value={password} onChange={setPassword} autoComplete="current-password" required />
       <button type="submit" disabled={pending} className="w-full rounded-[14px] cta-primary py-3 font-bold uppercase tracking-wider disabled:opacity-50 disabled:transform-none">
         {pending ? "Signing in…" : "Sign In"}
+      </button>
+      <button
+        type="button"
+        onClick={onForgotPassword}
+        className="w-full text-center text-xs text-muted-soft hover:text-accent transition-colors duration-200"
+      >
+        Forgot your password?
+      </button>
+    </form>
+  );
+}
+
+function ForgotPasswordForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: (email: string) => void }) {
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const res = await fetch("/api/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(data.error || "Something went wrong.");
+      return;
+    }
+    setSent(true);
+  }
+
+  if (sent) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <button onClick={onBack} className="text-xs text-muted-soft hover:text-ink transition-colors duration-200 mb-3 inline-flex items-center gap-1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M15 18l-6-6 6-6" /></svg>
+            Back to sign in
+          </button>
+          <h2 className="heading-cinematic text-2xl text-ink">Check your email</h2>
+          <p className="text-sm text-muted-soft mt-2">
+            We&apos;ve sent a 6-digit reset code to <strong className="text-ink">{email}</strong>.
+          </p>
+        </div>
+        <div className="rounded-[12px] border border-accent/20 px-4 py-3 text-sm text-accent" style={{ background: "rgba(0,255,133,0.06)" }}>
+          Enter the code on the next screen to set a new password.
+        </div>
+        <button
+          onClick={() => onSuccess(email)}
+          className="w-full rounded-[14px] cta-primary py-3 font-bold uppercase tracking-wider"
+        >
+          Enter Code
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div>
+        <button onClick={onBack} className="text-xs text-muted-soft hover:text-ink transition-colors duration-200 mb-3 inline-flex items-center gap-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M15 18l-6-6 6-6" /></svg>
+          Back to sign in
+        </button>
+        <p className="font-mono text-[10px] uppercase tracking-wider text-muted-soft">ZIM FCPRO</p>
+        <h2 className="heading-cinematic text-2xl text-ink mt-1">Reset password</h2>
+        <p className="text-sm text-muted-soft mt-1">Enter the email linked to your account. We&apos;ll send a 6-digit verification code.</p>
+      </div>
+      {error && <ErrorBox message={error} />}
+      <FieldInput label="Email address" type="email" value={email} onChange={setEmail} autoComplete="email" required />
+      <button type="submit" disabled={pending} className="w-full rounded-[14px] cta-primary py-3 font-bold uppercase tracking-wider disabled:opacity-50 disabled:transform-none">
+        {pending ? "Sending…" : "Send Reset Code"}
+      </button>
+    </form>
+  );
+}
+
+function ResetPasswordForm({ email, onBack, onSuccess }: { email: string; onBack: () => void; onSuccess: () => void }) {
+  const [code, setCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const [success, setSuccess] = useState(false);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (code.length !== 6) {
+      setError("Please enter the 6-digit code from your email.");
+      return;
+    }
+
+    const res = await fetch("/api/auth/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, code, newPassword }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(data.error || "Reset failed. The code may be wrong or expired.");
+      return;
+    }
+
+    setSuccess(true);
+  }
+
+  if (success) {
+    return (
+      <div className="space-y-4 text-center">
+        <div
+          className="mx-auto h-14 w-14 rounded-full flex items-center justify-center"
+          style={{ background: "rgba(0,255,133,0.08)", border: "1px solid rgba(0,255,133,0.20)" }}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="#00ff85" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7"><path d="M20 6L9 17l-5-5" /></svg>
+        </div>
+        <h2 className="heading-cinematic text-2xl text-ink">Password updated</h2>
+        <p className="text-sm text-muted-soft">Your password has been reset. You can now sign in with your new password.</p>
+        <button
+          onClick={onSuccess}
+          className="w-full rounded-[14px] cta-primary py-3 font-bold uppercase tracking-wider"
+        >
+          Sign In
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div>
+        <button onClick={onBack} className="text-xs text-muted-soft hover:text-ink transition-colors duration-200 mb-3 inline-flex items-center gap-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M15 18l-6-6 6-6" /></svg>
+          Resend code
+        </button>
+        <p className="font-mono text-[10px] uppercase tracking-wider text-muted-soft">ZIM FCPRO</p>
+        <h2 className="heading-cinematic text-2xl text-ink mt-1">Enter code</h2>
+        <p className="text-sm text-muted-soft mt-1">
+          We sent a 6-digit code to <strong className="text-ink">{email}</strong>.
+        </p>
+      </div>
+      {error && <ErrorBox message={error} />}
+
+      <div>
+        <label className="block text-xs uppercase tracking-wider text-muted-soft mb-1.5">6-digit code</label>
+        <input
+          type="text"
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase().slice(0, 6))}
+          placeholder="ABC123"
+          maxLength={6}
+          className="w-full apple-input px-3 py-2.5 text-ink text-sm text-center tracking-[0.4em] font-mono text-lg"
+          required
+        />
+      </div>
+
+      <FieldInput label="New password" type="password" value={newPassword} onChange={setNewPassword} hint="8+ characters" minLength={8} autoComplete="new-password" required />
+      <FieldInput label="Confirm password" type="password" value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" required />
+
+      <button type="submit" disabled={pending} className="w-full rounded-[14px] cta-primary py-3 font-bold uppercase tracking-wider disabled:opacity-50 disabled:transform-none">
+        {pending ? "Resetting…" : "Reset Password"}
       </button>
     </form>
   );

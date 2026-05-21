@@ -4,13 +4,15 @@ import { createContext, useContext, useState, useCallback, useEffect, type React
 import { useSearchParams } from "next/navigation";
 import { useAuthStore, type AuthUser } from "@/store/auth-store";
 
-type AuthModalTab = "signin" | "join";
+type AuthModalTab = "signin" | "join" | "forgot" | "reset";
 
 interface AuthContextValue {
   open: boolean;
   tab: AuthModalTab;
+  resetEmail: string;
   openAuth: (initialTab?: AuthModalTab) => void;
   closeAuth: () => void;
+  switchToReset: (email: string) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -18,6 +20,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<AuthModalTab>("signin");
+  const [resetEmail, setResetEmail] = useState("");
 
   const openAuth = useCallback((initialTab?: AuthModalTab) => {
     setTab(initialTab ?? "signin");
@@ -26,8 +29,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const closeAuth = useCallback(() => setOpen(false), []);
 
+  const switchToReset = useCallback((email: string) => {
+    setResetEmail(email);
+    setTab("reset");
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ open, tab, openAuth, closeAuth }}>
+    <AuthContext.Provider value={{ open, tab, resetEmail, openAuth, closeAuth, switchToReset }}>
       {children}
     </AuthContext.Provider>
   );
@@ -63,6 +71,10 @@ export function AuthUrlHandler() {
       openAuth("signin");
     } else if (auth === "join") {
       openAuth("join");
+    } else if (auth === "forgot") {
+      openAuth("forgot");
+    } else if (auth === "reset") {
+      openAuth("reset");
     }
   }, [searchParams, openAuth]);
 
