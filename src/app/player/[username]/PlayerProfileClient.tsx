@@ -78,8 +78,8 @@ export default function PlayerProfileClient({ data }: { data: ProfileData }) {
   const medal = ranking ? getMedalTheme(ranking.rankPosition) : null;
 
   return (
-    <div className="broadcast-theme min-h-screen bc-grain">
-      <div className="mx-auto max-w-2xl px-4 pt-4 pb-32 space-y-5">
+    <div className="broadcast-theme min-h-screen bc-grain overflow-x-hidden">
+      <div className="w-full max-w-full min-w-0 mx-auto sm:max-w-2xl px-4 pt-4 pb-32 space-y-4 sm:space-y-5">
         <ProfileHeader
           user={user}
           ranking={ranking}
@@ -122,7 +122,7 @@ function ProfileHeader({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
-      className="relative overflow-hidden rounded-[28px] inner-glow"
+      className="relative overflow-hidden rounded-[20px] sm:rounded-[28px] inner-glow w-full min-w-0"
       style={{
         background: ranking && ranking.rankPosition <= 3
           ? "linear-gradient(135deg, rgba(18,20,24,0.60) 0%, rgba(14,16,18,0.55) 100%)"
@@ -147,11 +147,11 @@ function ProfileHeader({
         />
       )}
 
-      <div className="relative z-10 p-6 pb-5">
-        <div className="flex items-start gap-4">
-          <div className="relative">
+      <div className="relative z-10 p-4 sm:p-6 pb-4 sm:pb-5">
+        <div className="flex items-start gap-3 sm:gap-4">
+          <div className="relative shrink-0">
             <div
-              className="h-20 w-20 rounded-[20px] border shrink-0 bg-cover bg-center flex items-center justify-center overflow-hidden"
+              className="aspect-square h-16 w-16 sm:h-20 sm:w-20 rounded-[16px] sm:rounded-[20px] border shrink-0 bg-cover bg-center flex items-center justify-center overflow-hidden"
               style={{
                 borderColor: medal?.border ?? "rgba(255,255,255,0.06)",
                 boxShadow: medal?.glow ?? "0 8px 28px rgba(0,0,0,0.25)",
@@ -178,8 +178,8 @@ function ProfileHeader({
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="bc-headline text-3xl text-ink truncate">{displayName}</h1>
+            <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
+              <h1 className="bc-headline text-2xl sm:text-3xl text-ink truncate">{displayName}</h1>
               {ranking && (
                 <span className="shrink-0 pill-accent rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
                   #{ranking.rankPosition}
@@ -261,7 +261,7 @@ function SwipeableTabs({ tabs, activeTab, onTabChange, panels }: {
 
   return (
     <div className="space-y-4">
-      <div className="relative -mx-4 px-4 overflow-x-auto bc-no-scrollbar">
+      <div className="relative -mx-4 px-4 overflow-x-auto bc-no-scrollbar sm:mx-0 sm:px-0 sm:overflow-visible" style={{ WebkitOverflowScrolling: 'touch' }}>
         <div className="flex items-center gap-1 min-w-max">
           {tabs.map((t) => {
             const on = activeTab === t;
@@ -270,7 +270,7 @@ function SwipeableTabs({ tabs, activeTab, onTabChange, panels }: {
                 key={t}
                 onClick={() => onTabChange(t)}
                 className={
-                  "relative shrink-0 rounded-[12px] px-4 py-2 text-[12px] font-bold uppercase tracking-[0.16em] transition-all duration-300 " +
+                  "relative shrink-0 rounded-[12px] px-4 py-2 text-[11px] sm:text-[12px] font-bold uppercase tracking-[0.16em] transition-all duration-300 " +
                   (on ? "text-accent" : "text-muted-soft hover:text-ink-soft")
                 }
                 style={{
@@ -320,9 +320,9 @@ function StatCard({ label, value, accent, variant, sub }: { label: string; value
   const glassClass = v === "cyan" ? "glass-cyan" : v === "emerald" ? "glass-emerald" : v === "orange" ? "glass-orange" : v === "purple" ? "glass-purple" : v === "gold" ? "glass-gold" : "frosted-card-sm";
   const gradientClass = v === "cyan" ? "text-gradient-cyan-blue" : v === "emerald" ? "text-gradient-lime-emerald" : v === "orange" ? "text-gradient-orange-gold" : "";
   return (
-    <div className={`${glassClass} p-4 sm:p-5 rounded-[22px] transition-all duration-300 hover:scale-[1.02]`}>
-      <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-muted-soft">{label}</p>
-      <p className={"bc-headline text-2xl sm:text-3xl mt-1 tabular-nums " + (accent ? "text-accent" : gradientClass || "text-ink")}>{value}</p>
+    <div className={`${glassClass} p-3 sm:p-4 sm:p-5 rounded-[18px] sm:rounded-[22px] transition-all duration-300 hover:scale-[1.02] w-full min-w-0`}>
+      <p className="font-mono text-[9px] sm:text-[10px] uppercase tracking-[0.24em] text-muted-soft">{label}</p>
+      <p className={"bc-headline text-xl sm:text-2xl sm:text-3xl mt-1 tabular-nums " + (accent ? "text-accent" : gradientClass || "text-ink")}>{value}</p>
       {sub && <p className="text-[10px] text-muted-faint font-mono mt-0.5">{sub}</p>}
     </div>
   );
@@ -330,9 +330,9 @@ function StatCard({ label, value, accent, variant, sub }: { label: string; value
 
 function MiniStat({ label, value, accent, negative }: { label: string; value: string | number; accent?: boolean; negative?: boolean }) {
   return (
-    <div className="frosted-card-sm p-3 rounded-[16px] text-center transition-all duration-300 hover:scale-[1.02]">
-      <p className={"bc-headline text-lg tabular-nums " + (accent ? "text-accent" : negative ? "text-negative/80" : "text-ink")}>{value}</p>
-      <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-muted-faint mt-0.5">{label}</p>
+    <div className="frosted-card-sm p-2.5 sm:p-3 rounded-[14px] sm:rounded-[16px] text-center transition-all duration-300 hover:scale-[1.02] w-full min-w-0">
+      <p className={"bc-headline text-base sm:text-lg tabular-nums " + (accent ? "text-accent" : negative ? "text-negative/80" : "text-ink")}>{value}</p>
+      <p className="font-mono text-[8px] sm:text-[9px] uppercase tracking-[0.22em] text-muted-faint mt-0.5">{label}</p>
     </div>
   );
 }
@@ -341,24 +341,24 @@ function OverviewPanel({ data, winRate, goalDiff, formArr }: { data: ProfileData
   const { ranking, stats } = data;
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
         <StatCard label="Rank" value={ranking ? `#${ranking.rankPosition}` : "—"} accent={!!ranking} variant="cyan" />
         <StatCard label="Points" value={ranking?.points ?? stats?.points ?? 0} variant="emerald" />
         <StatCard label="Win Rate" value={`${winRate}%`} variant={winRate >= 60 ? "emerald" : winRate >= 40 ? "orange" : undefined} />
       </div>
-      <div className="grid grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-4 gap-2 sm:gap-2.5">
         <MiniStat label="Played" value={data.stats?.matchesPlayed ?? 0} />
         <MiniStat label="Wins" value={data.stats?.wins ?? 0} accent />
         <MiniStat label="Draws" value={data.stats?.draws ?? 0} />
         <MiniStat label="Losses" value={data.stats?.losses ?? 0} negative />
       </div>
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
         <MiniStat label="Goals" value={data.stats?.goalsScored ?? 0} />
         <MiniStat label="GD" value={goalDiff >= 0 ? `+${goalDiff}` : `${goalDiff}`} accent={goalDiff > 0} negative={goalDiff < 0} />
         <MiniStat label="Skill" value={Math.round(data.stats?.skillRating ?? 1000)} />
       </div>
       {data.stats && data.stats.winStreak > 0 && (
-        <div className="frosted-card-sm p-4 rounded-[20px] flex items-center justify-between">
+        <div className="frosted-card-sm p-3 sm:p-4 rounded-[18px] sm:rounded-[20px] flex items-center justify-between w-full min-w-0">
           <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-muted-soft">Win Streak</span>
           <span className="flex items-center gap-1.5 bc-headline text-xl text-accent">
             {data.stats.winStreak}
@@ -383,8 +383,8 @@ function StatsPanel({ data, winRate, goalDiff }: { data: ProfileData; winRate: n
 
   return (
     <div className="space-y-4">
-      <div className="glass-cyan p-5 rounded-[24px]">
-        <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-muted-soft mb-3">Win Rate Distribution</p>
+      <div className="glass-cyan p-3 sm:p-5 rounded-[20px] sm:rounded-[24px]">
+        <p className="font-mono text-[9px] sm:text-[10px] uppercase tracking-[0.24em] text-muted-soft mb-3">Win Rate Distribution</p>
         <div className="flex h-4 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.04)" }}>
           {winPct > 0 && <div className="bg-accent transition-all duration-700 rounded-l-full" style={{ width: `${winPct}%` }} />}
           {drawPct > 0 && <div className="bg-gold transition-all duration-700" style={{ width: `${drawPct}%` }} />}
@@ -397,15 +397,15 @@ function StatsPanel({ data, winRate, goalDiff }: { data: ProfileData; winRate: n
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
         <StatCard label="Goals Scored" value={s?.goalsScored ?? 0} variant="emerald" />
         <StatCard label="Goals Conceded" value={s?.goalsConceded ?? 0} variant="orange" />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
         <StatCard label="Goal Difference" value={goalDiff >= 0 ? `+${goalDiff}` : `${goalDiff}`} accent={goalDiff > 0} variant={goalDiff > 0 ? "emerald" : "orange"} />
         <StatCard label="Skill Rating" value={Math.round(s?.skillRating ?? 1000)} variant="cyan" />
       </div>
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
         <MiniStat label="Points" value={data.ranking?.points ?? s?.points ?? 0} accent />
         <MiniStat label="Avg GF" value={totalMatches > 0 ? ((s?.goalsScored ?? 0) / totalMatches).toFixed(1) : "0"} />
         <MiniStat label="Avg GA" value={totalMatches > 0 ? ((s?.goalsConceded ?? 0) / totalMatches).toFixed(1) : "0"} negative />
@@ -417,8 +417,8 @@ function StatsPanel({ data, winRate, goalDiff }: { data: ProfileData; winRate: n
 function MatchesPanel({ matches, userId }: { matches: ProfileData["recentMatches"]; userId: string }) {
   if (matches.length === 0) {
     return (
-      <div className="glass p-8 text-center space-y-3">
-        <p className="bc-headline text-xl text-ink">No matches yet</p>
+      <div className="glass p-6 sm:p-8 text-center space-y-3">
+        <p className="bc-headline text-lg sm:text-xl text-ink">No matches yet</p>
         <p className="text-sm text-muted">Play your first match to see results here.</p>
       </div>
     );
@@ -486,12 +486,12 @@ function ClubsPanel({ club }: { club: ProfileData["club"] }) {
   return (
     <Link
       href={`/club/${club.slug ?? club.tag ?? club.id}`}
-      className="block group frosted-card p-5 rounded-[24px] hover:border-accent/20 transition-all duration-300"
+      className="block group frosted-card p-4 sm:p-5 rounded-[20px] sm:rounded-[24px] hover:border-accent/20 transition-all duration-300 w-full min-w-0"
     >
       <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-muted-soft mb-3">Club</p>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 sm:gap-4">
         <div
-          className="h-14 w-14 rounded-[16px] border border-white/[0.06] bg-cover bg-center shrink-0 flex items-center justify-center"
+          className="aspect-square h-12 w-12 sm:h-14 sm:w-14 rounded-[14px] sm:rounded-[16px] border border-white/[0.06] bg-cover bg-center shrink-0 flex items-center justify-center overflow-hidden"
           style={{
             backgroundImage: club.logoUrl ? `url(${club.logoUrl})` : undefined,
             boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
@@ -503,7 +503,7 @@ function ClubsPanel({ club }: { club: ProfileData["club"] }) {
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="bc-headline text-xl text-ink group-hover:text-accent transition-colors duration-300 truncate">{club.name}</p>
+          <p className="bc-headline text-lg sm:text-xl text-ink group-hover:text-accent transition-colors duration-300 truncate">{club.name}</p>
           <p className="font-mono text-[11px] text-muted-soft">[{club.tag}]</p>
         </div>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-5 w-5 text-muted-soft group-hover:text-accent transition-colors duration-300 shrink-0">

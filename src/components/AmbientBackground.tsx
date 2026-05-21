@@ -62,9 +62,9 @@ export function AmbientBackground() {
     setMounted(true);
   }, []);
 
-  if (!mounted) {
+    if (!mounted) {
     return (
-      <div className="ambient-gradients" suppressHydrationWarning>
+      <div className="ambient-gradients overflow-hidden" suppressHydrationWarning>
         {BLOBS.map((blob, i) => (
           <div
             key={i}
@@ -98,7 +98,7 @@ export function AmbientBackground() {
   }
 
   return (
-    <div className="ambient-gradients">
+    <div className="ambient-gradients overflow-hidden">
       {BLOBS.map((blob, i) => (
         <div
           key={i}

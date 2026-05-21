@@ -155,6 +155,8 @@
 html, body {
   background: var(--bg);
   color: var(--ink);
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 body {
@@ -2031,6 +2033,8 @@ body {
   display: flex;
   gap: 0;
   border-bottom: 1px solid rgba(255,255,255,0.04);
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
 }
 
 .tab-item {
@@ -2830,222 +2834,69 @@ html {
   .glow-active-accent { box-shadow: 0 0 0 0.5px rgba(0,255,133,0.12) inset; }
 }
 
-/* ═══════════════════════════════════════════════════════════
-   V6 COMPETITIVE PSYCHOLOGY — Progression · Rivalry · Prestige
-   ═══════════════════════════════════════════════════════════ */
+/* ── RESPONSIVE OVERFLOW + MOBILE FIXES ─────────────────── */
 
-/* ── 1. DIVISION TIER BADGE SYSTEM ────────────────────────── */
-
-.division-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.125rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.5625rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  line-height: 1.2;
+*, *::before, *::after {
+  max-inline-size: 100vw;
 }
 
-.division-elite {
-  background: linear-gradient(135deg, rgba(0,255,133,0.15), rgba(34,211,238,0.10));
-  border: 1px solid rgba(0,255,133,0.30);
-  color: var(--accent);
-}
-
-.division-pro {
-  background: rgba(255,184,0,0.10);
-  border: 1px solid rgba(255,184,0,0.25);
-  color: var(--gold);
-}
-
-.division-contender {
-  background: rgba(34,211,238,0.10);
-  border: 1px solid rgba(34,211,238,0.25);
-  color: var(--cyan);
-}
-
-.division-rising {
-  background: rgba(168,85,247,0.10);
-  border: 1px solid rgba(168,85,247,0.20);
-  color: var(--purple);
-}
-
-.division-rookie {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.10);
-  color: var(--muted-soft);
-}
-
-/* ── 2. XP / PROGRESS BAR ENHANCEMENTS ──────────────────── */
-
-.xp-bar {
-  height: 3px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.05);
-  overflow: hidden;
-  position: relative;
-}
-
-.xp-bar-fill {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--accent), var(--cyan));
-  transition: width 1s var(--spring-out);
-  position: relative;
-}
-
-.xp-bar-fill::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.25) 50%, transparent 100%);
-  animation: xp-bar-shimmer 3s ease-in-out infinite;
-}
-
-@keyframes xp-bar-shimmer {
-  0%, 100% { opacity: 0; }
-  50% { opacity: 1; }
-}
-
-/* ── 3. STREAK INDICATORS ─────────────────────────────────── */
-
-.streak-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.625rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  line-height: 1;
-}
-
-.streak-hot {
-  color: var(--gold);
-  text-shadow: 0 0 12px rgba(255,184,0,0.30);
-}
-
-.streak-warm {
-  color: var(--accent);
-}
-
-.streak-cold {
-  color: var(--muted-faint);
-}
-
-/* ── 4. COMPETITIVE TENSION ZONES ─────────────────────────── */
-
-.promotion-zone {
-  border-left: 2px solid var(--accent);
-}
-
-.relegation-zone {
-  border-left: 2px solid var(--negative);
-}
-
-.reward-glow {
-  box-shadow:
-    0 0 0 0.5px rgba(255,184,0,0.10) inset,
-    0 0 24px rgba(255,184,0,0.04);
-}
-
-/* ── 5. RANK MOVEMENT INDICATORS ──────────────────────────── */
-
-.rank-up {
-  color: var(--accent);
-}
-.rank-up::before {
-  content: '▲';
-  font-size: 0.5em;
-  margin-right: 0.125em;
-}
-
-.rank-down {
-  color: var(--negative);
-}
-.rank-down::before {
-  content: '▼';
-  font-size: 0.5em;
-  margin-right: 0.125em;
-}
-
-.rank-same {
-  color: var(--muted-faint);
-}
-.rank-same::before {
-  content: '–';
-  margin-right: 0.125em;
-}
-
-/* ── 6. SPACING RHYTHM TOKENS ────────────────────────────── */
-
-.section-spacing {
-  padding-top: clamp(3rem, 6vw, 5rem);
-  padding-bottom: clamp(3rem, 6vw, 5rem);
-}
-
-.section-spacing-sm {
-  padding-top: clamp(2rem, 4vw, 3rem);
-  padding-bottom: clamp(2rem, 4vw, 3rem);
-}
-
-.section-spacing-lg {
-  padding-top: clamp(4rem, 8vw, 7rem);
-  padding-bottom: clamp(4rem, 8vw, 7rem);
-}
-
-.card-stack {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(0.75rem, 1.5vw, 1rem);
-}
-
-/* ── 7. MOBILE TIGHTENING ────────────────────────────────── */
-
-@media (max-width: 639px) {
-  .mobile-compact {
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
-  }
-  .mobile-gap-y {
-    gap: 0.75rem;
-  }
-  .mobile-text-tight {
-    font-size: clamp(0.75rem, 3.5vw, 0.875rem);
-  }
-  .mobile-heading-tight {
-    font-size: clamp(1.75rem, 8vw, 2.5rem) !important;
-  }
-  .mobile-stack-reverse {
-    flex-direction: column-reverse;
+@media (max-width: 640px) {
+  .frosted-card,
+  .frosted-card-sm,
+  .glass-v2,
+  .glass-v2-sm,
+  .glass-v2-accent,
+  .glass,
+  .glass-accent,
+  .glass-gold,
+  .glass-cyan,
+  .glass-purple,
+  .glass-emerald,
+  .glass-orange,
+  .card-cinematic,
+  .card-interactive,
+  .card-premium,
+  .card-elevated,
+  .premium-surface,
+  .premium-surface-sm {
+    overflow: hidden;
+    max-width: 100%;
   }
 }
 
-/* ── 8. CARD HEIGHT UNIFICATION ───────────────────────────── */
-
-.card-auto-height {
-  height: auto;
-  min-height: 0;
+/* Prevent horizontal overflow from animations and transforms */
+.broadcast-theme {
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
 }
 
-.card-fill {
-  height: 100%;
+/* Fix frosted-card and glass-v2 on mobile to prevent overflow */
+@media (max-width: 640px) {
+  .tab-bar {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .tab-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .glass-shimmer {
+    background-size: 200% 100%;
+  }
+
+  .neon-border-flow::before,
+  .glow-border-accent::before,
+  .glow-border-purple::before,
+  .glow-border-gold::before {
+    display: none;
+  }
 }
 
-/* ── 9. SCROLL CONTAINMENT ────────────────────────────────── */
-
-.scroll-contain {
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* ── 10. REDUCED MOTION OVERRIDE ─────────────────────────── */
-
-@media (prefers-reduced-motion: reduce) {
-  .xp-bar-fill { transition: none; }
-  .ticker-track { animation: none; }
-  .streak-hot { text-shadow: none; }
-  .rank-up::before, .rank-down::before { display: none; }
+/* Safe area padding for bottom-anchored elements */
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 1rem);
 }

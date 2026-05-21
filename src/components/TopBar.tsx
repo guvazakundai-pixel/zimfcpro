@@ -16,7 +16,7 @@ export async function TopBar() {
         WebkitBackdropFilter: "blur(28px) saturate(1.6)",
       }}
     >
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 h-13 flex items-center justify-between gap-4">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 h-13 flex items-center justify-between gap-4 w-full min-w-0">
         <Link href="/" className="flex items-center gap-2.5 group">
           <span
             className="inline-grid place-items-center h-8 w-8 rounded-[10px] text-accent font-display text-base leading-none group-hover:shadow-[0_0_20px_rgba(0,255,133,0.15)] transition-all duration-300"

@@ -78,7 +78,7 @@ export default function RootLayout({
               <ErrorBoundary scope="topbar">
                 <TopBar />
               </ErrorBoundary>
-              <main className="flex-1 pb-28">
+              <main className="flex-1 pb-28 w-full max-w-full min-w-0 overflow-x-hidden">
                 <ErrorBoundary scope="page-content">
                   <Suspense fallback={<HeroSkeleton />}>
                     <PageTransition>

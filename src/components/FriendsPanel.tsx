@@ -61,7 +61,7 @@ export function FriendsPanel({
   const outgoingRequests = requests.filter((r) => r.sender.id === currentUserId);
 
   return (
-    <div className={`frosted-card overflow-hidden rounded-[24px] ${className}`}>
+    <div className={`frosted-card overflow-hidden rounded-[20px] sm:rounded-[24px] w-full min-w-0 ${className}`}>
       <div className="flex border-b border-border-faint">
         {(["friends", "requests", "add"] as const).map((t) => (
           <button

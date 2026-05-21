@@ -170,8 +170,8 @@ export default async function PlayerDashboard() {
 
   if (!user) {
     return (
-      <div className="broadcast-theme min-h-screen bc-grain">
-        <div className="mx-auto max-w-4xl px-4 py-6">
+      <div className="broadcast-theme min-h-screen bc-grain overflow-x-hidden">
+        <div className="mx-auto max-w-4xl px-4 py-6 w-full min-w-0">
           <div className="text-center py-20 px-6">
             <div className="h-20 w-20 rounded-full flex items-center justify-center mx-auto mb-6" style={{ background: "rgba(255,77,77,0.06)", border: "1px solid rgba(255,77,77,0.12)" }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-9 w-9 text-negative/70"><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" /></svg>
@@ -265,7 +265,7 @@ export default async function PlayerDashboard() {
   });
 
   return (
-    <div className="broadcast-theme min-h-screen bc-grain">
+    <div className="broadcast-theme min-h-screen bc-grain overflow-x-hidden">
       <PlayerHubClient
         user={{
           id: user.id,

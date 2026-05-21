@@ -36,19 +36,19 @@ export function AnimatedTabs({
 
   return (
     <div className={`${sticky ? "sticky-tabs" : ""} ${className}`}>
-      <div ref={containerRef} className="tab-bar relative">
+      <div ref={containerRef} className="tab-bar relative flex overflow-x-auto bc-no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 sm:overflow-visible gap-0 pb-1 sm:pb-0">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             data-tab-id={tab.id}
             data-active={activeTab === tab.id}
             onClick={() => onChange(tab.id)}
-            className="tab-item flex items-center gap-2 text-[12px] sm:text-[13px] px-3 sm:px-5 py-3"
+            className="tab-item flex-shrink-0 flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-[13px] px-3 sm:px-5 py-3 whitespace-nowrap"
           >
             {tab.icon && <span className="w-4 h-4">{tab.icon}</span>}
             <span>{tab.label}</span>
             {tab.badge !== undefined && tab.badge > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-accent/15 text-accent text-[9px] font-bold">
+              <span className="ml-0.5 sm:ml-1 px-1.5 py-0.5 rounded-full bg-accent/15 text-accent text-[9px] font-bold">
                 {tab.badge}
               </span>
             )}
