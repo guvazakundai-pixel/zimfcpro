@@ -11,10 +11,22 @@ export type AuthUser = {
   clubId?: string | null;
 };
 
+export type WelcomeData = {
+  globalRank: number;
+  totalPlayers: number;
+  division: string;
+  referralCode: string;
+  referralLink: string;
+  platform: string;
+  xp: number;
+};
+
 type AuthState = {
   user: AuthUser | null;
   loading: boolean;
   initialized: boolean;
+  welcomeData: WelcomeData | null;
+  setWelcomeData: (data: WelcomeData | null) => void;
   hydrate: () => Promise<void>;
   setUser: (user: AuthUser | null) => void;
   logout: () => Promise<void>;
@@ -47,6 +59,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   loading: true,
   initialized: false,
+  welcomeData: null,
+
+  setWelcomeData: (data) => set({ welcomeData: data }),
 
   hydrate: async () => {
     if (get().initialized) return;

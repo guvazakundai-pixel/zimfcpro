@@ -212,11 +212,13 @@ export default async function PlayerDashboard() {
       }
     : null;
 
-  const ranking = playerRankingData
+  const rankingData2 = playerRankingData
     ? {
         rankPosition: playerRankingData.rankPosition,
         points: playerRankingData.points,
         prevPosition: playerRankingData.prevPosition,
+        regionalRank: (playerRankingData as Record<string, unknown>).regionalRank as number | undefined,
+        platformRank: (playerRankingData as Record<string, unknown>).platformRank as number | undefined,
       }
     : null;
 
@@ -275,7 +277,7 @@ export default async function PlayerDashboard() {
           bio: user.bio,
         }}
         stats={stats}
-        ranking={ranking}
+        ranking={rankingData2}
         club={club}
         activeTournaments={activeTournaments}
         activeLeagues={activeLeagues}

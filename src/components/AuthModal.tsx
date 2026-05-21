@@ -3,12 +3,12 @@
 import { useState, useTransition, useRef, useEffect } from "react";
 import { useAuthModal } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/store/auth-store";
+import { useAuthStore, type WelcomeData } from "@/store/auth-store";
+import { WelcomeOverlay } from "@/components/WelcomeOverlay";
 
 type Tab = "signin" | "join";
 
 const PLATFORMS = [
-  { value: "CROSSPLAY", label: "Crossplay" },
   { value: "PS5", label: "PlayStation 5" },
   { value: "XBOX", label: "Xbox Series X|S" },
   { value: "PC", label: "PC (EA App)" },
@@ -18,6 +18,8 @@ export function AuthModal() {
   const { open, tab: initialTab, closeAuth } = useAuthModal();
   const [tab, setTab] = useState<Tab>(initialTab);
   const backdropRef = useRef<HTMLDivElement>(null);
+  const welcomeData = useAuthStore((s) => s.welcomeData);
+  const setWelcomeData = useAuthStore((s) => s.setWelcomeData);
 
   useEffect(() => {
     setTab(initialTab);
@@ -31,6 +33,10 @@ export function AuthModal() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open, closeAuth]);
+
+  if (welcomeData) {
+    return <WelcomeOverlay data={welcomeData} onDismiss={() => { setWelcomeData(null); closeAuth(); }} />;
+  }
 
   if (!open) return null;
 
@@ -123,19 +129,13 @@ function SignInForm({ onClose }: { onClose: () => void }) {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
-        <p className="font-mono text-[10px] uppercase tracking-wider text-muted-soft">
-          ZIM FCPRO
-        </p>
+        <p className="font-mono text-[10px] uppercase tracking-wider text-muted-soft">ZIM FCPRO</p>
         <h2 className="heading-cinematic text-2xl text-ink mt-1">Welcome back</h2>
       </div>
       {error && <ErrorBox message={error} />}
       <FieldInput label="Username or email" value={identifier} onChange={setIdentifier} autoComplete="username" required />
       <FieldInput label="Password" type="password" value={password} onChange={setPassword} autoComplete="current-password" required />
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-full rounded-[14px] cta-primary py-3 font-bold uppercase tracking-wider disabled:opacity-50 disabled:transform-none"
-      >
+      <button type="submit" disabled={pending} className="w-full rounded-[14px] cta-primary py-3 font-bold uppercase tracking-wider disabled:opacity-50 disabled:transform-none">
         {pending ? "Signing in…" : "Sign In"}
       </button>
     </form>
@@ -143,18 +143,35 @@ function SignInForm({ onClose }: { onClose: () => void }) {
 }
 
 function JoinForm({ onClose }: { onClose: () => void }) {
-  const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [platform, setPlatform] = useState("CROSSPLAY");
-  const [phone, setPhone] = useState("");
-  const [whatsapp, setWhatsapp] = useState("");
-  const [terms, setTerms] = useState(false);
+  const [platform, setPlatform] = useState("PS5");
+  const [region, setRegion] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [checkingUsername, setCheckingUsername] = useState(false);
   const router = useRouter();
   const setUser = useAuthStore((s) => s.setUser);
+  const setWelcomeData = useAuthStore((s) => s.setWelcomeData);
+
+  useEffect(() => {
+    if (username.length < 3) { setUsernameAvailable(null); return; }
+    const timer = setTimeout(async () => {
+      setCheckingUsername(true);
+      try {
+        const res = await fetch(`/api/auth/check-username?username=${encodeURIComponent(username)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setUsernameAvailable(data.available);
+        }
+      } catch {} finally {
+        setCheckingUsername(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [username]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -162,7 +179,7 @@ function JoinForm({ onClose }: { onClose: () => void }) {
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ displayName, username, email, password, platform, phone, whatsapp }),
+      body: JSON.stringify({ username, email, password, platform, region }),
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
@@ -171,50 +188,85 @@ function JoinForm({ onClose }: { onClose: () => void }) {
     }
     const data = await res.json();
     setUser(data.user);
+    if (data.welcome) {
+      setWelcomeData(data.welcome as WelcomeData);
+    }
     startTransition(() => {
       onClose();
-      router.push("/dashboard");
       router.refresh();
     });
   }
 
+  const suggestions = usernameAvailable === false && username.length >= 3
+    ? [`${username}FC`, `${username}Pro`, `${username}01`, `${username}_zw`]
+    : [];
+
   return (
     <form onSubmit={onSubmit} className="space-y-3.5">
       <div>
-        <p className="font-mono text-[10px] uppercase tracking-wider text-muted-soft">
-          ZIM FCPRO
-        </p>
-        <h2 className="heading-cinematic text-2xl text-ink mt-1">Create account</h2>
+        <p className="font-mono text-[10px] uppercase tracking-wider text-muted-soft">ZIM FCPRO</p>
+        <h2 className="heading-cinematic text-2xl text-ink mt-1">Create your football identity</h2>
       </div>
       {error && <ErrorBox message={error} />}
-      <FieldInput label="Display Name" value={displayName} onChange={setDisplayName} hint="3-30 characters" minLength={3} maxLength={30} required />
-      <FieldInput label="EA FC Username" value={username} onChange={setUsername} hint="3-20 chars, letters/numbers/underscores" minLength={3} maxLength={20} required />
+
+      <div>
+        <FieldInput
+          label="Username" value={username} onChange={setUsername}
+          hint="3-20 chars, letters/numbers/underscores — this is your football identity"
+          minLength={3} maxLength={20} required
+          suffix={
+            checkingUsername ? (
+              <span className="text-muted-faint text-xs animate-pulse">checking…</span>
+            ) : usernameAvailable === true ? (
+              <span className="text-accent text-xs">✓ available</span>
+            ) : usernameAvailable === false ? (
+              <span className="text-negative text-xs">✕ taken</span>
+            ) : null
+          }
+        />
+        {suggestions.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
+            {suggestions.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setUsername(s)}
+                className="text-[10px] px-2 py-1 rounded-full bg-white/[0.04] border border-white/[0.06] text-muted-soft hover:text-accent hover:border-accent/30 transition-colors"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       <FieldInput label="Email" type="email" value={email} onChange={setEmail} autoComplete="email" required />
       <FieldInput label="Password" type="password" value={password} onChange={setPassword} hint="8+ characters" minLength={8} autoComplete="new-password" required />
+
       <div>
         <label className="block text-xs uppercase tracking-wider text-muted-soft mb-1">Platform</label>
         <select value={platform} onChange={(e) => setPlatform(e.target.value)} className="w-full apple-input px-3 py-2.5 text-ink text-sm cursor-pointer">
           {PLATFORMS.map((p) => (<option key={p.value} value={p.value}>{p.label}</option>))}
         </select>
       </div>
-      <FieldInput label="Phone Number (optional)" type="tel" value={phone} onChange={setPhone} hint="For voice call challenges" />
-      <FieldInput label="WhatsApp (optional)" type="tel" value={whatsapp} onChange={setWhatsapp} hint="For WhatsApp contact" />
-      <label className="flex items-start gap-2.5 cursor-pointer">
-        <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} required className="mt-0.5 h-4 w-4 rounded border-white/[0.12] accent-[#00ff85]" />
-        <span className="text-xs text-[#8E909A] leading-snug">I agree to the ZIM FCPRO rules and community guidelines</span>
-      </label>
-      <button type="submit" disabled={pending || !terms} className="w-full rounded-[14px] cta-primary py-3 font-bold uppercase tracking-wider disabled:opacity-50 disabled:transform-none">
-        {pending ? "Creating account…" : "Join ZIM FCPRO"}
+
+      <FieldInput label="Region (optional)" value={region} onChange={setRegion} hint="e.g. Harare, Bulawayo — for local rankings" />
+
+      <button type="submit" disabled={pending} className="w-full rounded-[14px] cta-primary py-3 font-bold uppercase tracking-wider disabled:opacity-50 disabled:transform-none">
+        {pending ? "Creating account…" : "Create Account"}
       </button>
     </form>
   );
 }
 
-function FieldInput({ label, type = "text", value, onChange, hint, ...rest }: { label: string; type?: string; value: string; onChange: (v: string) => void; hint?: string } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "type" | "value">) {
+function FieldInput({ label, type = "text", value, onChange, hint, suffix, ...rest }: { label: string; type?: string; value: string; onChange: (v: string) => void; hint?: string; suffix?: React.ReactNode } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "type" | "value">) {
   return (
     <label className="block">
       <span className="block text-xs uppercase tracking-wider text-muted-soft mb-1.5">{label}</span>
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} className="w-full apple-input px-3 py-2.5 text-ink text-sm" {...rest} />
+      <div className="relative">
+        <input type={type} value={value} onChange={(e) => onChange(e.target.value)} className="w-full apple-input px-3 py-2.5 text-ink text-sm" {...rest} />
+        {suffix && <span className="absolute right-3 top-1/2 -translate-y-1/2">{suffix}</span>}
+      </div>
       {hint && <span className="block text-[10px] text-muted-faint mt-1">{hint}</span>}
     </label>
   );
