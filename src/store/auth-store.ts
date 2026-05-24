@@ -26,6 +26,8 @@ type AuthState = {
   loading: boolean;
   initialized: boolean;
   welcomeData: WelcomeData | null;
+  playerCount: number;
+  setPlayerCount: (count: number) => void;
   setWelcomeData: (data: WelcomeData | null) => void;
   hydrate: () => Promise<void>;
   setUser: (user: AuthUser | null) => void;
@@ -60,6 +62,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loading: true,
   initialized: false,
   welcomeData: null,
+  playerCount: 0,
+
+  setPlayerCount: (count) => set({ playerCount: count }),
 
   setWelcomeData: (data) => set({ welcomeData: data }),
 

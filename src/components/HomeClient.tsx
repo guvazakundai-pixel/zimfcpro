@@ -16,6 +16,7 @@ import { CommunityFeed } from "@/components/CommunityFeed";
 import { JoinCTA } from "@/components/JoinCTA";
 import { Particles } from "@/components/ui/Particles";
 import { LiveRankingsWidget } from "@/components/LiveRankingsWidget";
+import { useAuthStore } from "@/store/auth-store";
 
 function safeNumber(val: number | undefined | null, fallback: number = 0): number {
   if (val === null || val === undefined || !Number.isFinite(val)) return fallback;
@@ -26,6 +27,54 @@ function useMounted(): boolean {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
   return mounted;
+}
+
+function useLivePlayerCount(initialCount: number): number {
+  const [count, setCount] = useState(initialCount);
+  const welcomeData = useAuthStore((s) => s.welcomeData);
+  const storePlayerCount = useAuthStore((s) => s.playerCount);
+  const setStorePlayerCount = useAuthStore((s) => s.setPlayerCount);
+
+  useEffect(() => {
+    if (storePlayerCount > 0) {
+      setCount(storePlayerCount);
+    }
+  }, [storePlayerCount]);
+
+  useEffect(() => {
+    if (welcomeData?.totalPlayers && welcomeData.totalPlayers > count) {
+      setCount(welcomeData.totalPlayers);
+      setStorePlayerCount(welcomeData.totalPlayers);
+    }
+  }, [welcomeData]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function poll() {
+      try {
+        const res = await fetch("/api/stats/player-count");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (mounted && typeof data.playerCount === "number") {
+          setCount(data.playerCount);
+          setStorePlayerCount(data.playerCount);
+        }
+      } catch {
+        // silent — serverless cold start may fail
+      }
+    }
+
+    poll();
+
+    const interval = setInterval(poll, 15_000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, [setStorePlayerCount]);
+
+  return count;
 }
 
 export function HomeClient({
@@ -42,9 +91,11 @@ export function HomeClient({
   const mounted = useMounted();
   const [modalPlayerId, setModalPlayerId] = useState<string | null>(null);
 
+  const livePlayerCount = useLivePlayerCount(playerCountRaw);
+
   const totalMatches = safeNumber(totalMatchesRaw, 0);
   const totalGoals = safeNumber(totalGoalsRaw, 0);
-  const playerCount = safeNumber(playerCountRaw, 0);
+  const playerCount = livePlayerCount;
   const clubCount = safeNumber(clubCountRaw, 0);
 
   const modalPlayer = useMemo(
@@ -58,7 +109,6 @@ export function HomeClient({
 
   return (
     <div className="broadcast-theme min-h-screen">
-      {/* Animated grid overlay */}
       <div
         aria-hidden
         className="fixed inset-0 pointer-events-none z-0"
@@ -76,7 +126,7 @@ export function HomeClient({
         playerCount={playerCount}
         clubCount={clubCount}
       />
-      <BroadcastTicker />
+      <BroadcastTicker playerCount={playerCount} />
       <CreateCTASection />
       <HowItWorksSection />
       <LiveTournamentsCarousel />
@@ -267,7 +317,6 @@ function HeroSection({
                   Create your account and begin your climb up the ZW leaderboard.
                 </p>
 
-                {/* Progression bar — visual cue for rank tiers */}
                 <div className="mt-4 mb-4">
                   <div className="flex items-center justify-between text-[8px] font-bold uppercase tracking-[0.15em] text-muted-faint mb-1.5">
                     <span>Rookie</span>
@@ -355,7 +404,7 @@ function HeroSection({
   );
 }
 
-function BroadcastTicker() {
+function BroadcastTicker({ playerCount }: { playerCount: number }) {
   const items = [
     { type: "live", text: "ZW SEASON 1 — LIVE NOW" },
     { type: "divider" },
@@ -366,7 +415,7 @@ function BroadcastTicker() {
     { type: "divider" },
     { type: "stat", text: "1,284 MATCHES PLAYED" },
     { type: "stat", text: "4,871 GOALS SCORED" },
-    { type: "stat", text: "342 ACTIVE PLAYERS" },
+    { type: "stat", text: `${playerCount.toLocaleString()} ACTIVE PLAYERS` },
     { type: "divider" },
     { type: "live", text: "NEXT TOURNAMENT: HARARE OPEN — 3 DAYS" },
   ];

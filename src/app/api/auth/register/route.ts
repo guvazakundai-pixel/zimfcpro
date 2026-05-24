@@ -65,9 +65,12 @@ function getDivisionForSkillRating(sr: number): string {
 }
 
 export async function POST(req: Request) {
+  console.log("[Register] Starting registration request");
+
   const rlKey = rateLimitKey(req, "register");
   const rl = rateLimit(rlKey, { windowMs: 60 * 60 * 1000, max: 5 });
   if (!rl.allowed) {
+    console.warn("[Register] Rate limit exceeded for", rlKey);
     return NextResponse.json(
       { error: "Too many registration attempts. Try again later." },
       { status: 429 },
@@ -77,6 +80,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const parsed = RegisterSchema.safeParse(body);
   if (!parsed.success) {
+    console.warn("[Register] Invalid input:", parsed.error.flatten());
     return NextResponse.json(
       { error: "Invalid input", details: parsed.error.flatten() },
       { status: 400 },
@@ -85,11 +89,14 @@ export async function POST(req: Request) {
 
   const { username, email, password, platform, region, referralCode } = parsed.data;
 
+  console.log(`[Register] Checking existing account for ${username} / ${email}`);
+
   const existing = await db.execute({
     sql: "SELECT id FROM users WHERE username = ? OR email = ? LIMIT 1",
     args: [username, email],
   });
   if (existing.rows.length > 0) {
+    console.warn(`[Register] Account already exists for ${username} / ${email}`);
     return NextResponse.json(
       { error: "An account with that username or email already exists. Try signing in instead." },
       { status: 409 },
@@ -100,9 +107,13 @@ export async function POST(req: Request) {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
 
+  console.log("[Register] Counting existing players for rank assignment");
+
   const totalRow = await db.execute("SELECT count(*) as c FROM player_rankings");
   const playerCount = Number(totalRow.rows[0]?.c ?? 0);
   const startingRank = playerCount + 1;
+
+  console.log(`[Register] Player count: ${playerCount}, starting rank: ${startingRank}`);
 
   const skills: string[] = [];
   try { await db.execute("ALTER TABLE users ADD COLUMN referral_code TEXT"); } catch { skills.push("rc"); }
@@ -122,6 +133,7 @@ export async function POST(req: Request) {
     });
     if (referrerRow.rows.length > 0) {
       referrerId = (referrerRow.rows[0] as Record<string, unknown>).id as string;
+      console.log(`[Register] Referrer found: ${referrerId}`);
     }
   }
 
@@ -131,6 +143,8 @@ export async function POST(req: Request) {
   const rankingId = crypto.randomUUID();
   const achievementId = crypto.randomUUID();
   const welcome = ACHIEVEMENTS.WELCOME;
+
+  console.log("[Register] Creating user in database");
 
   await db.batch(
     [
@@ -154,6 +168,8 @@ export async function POST(req: Request) {
     "write",
   );
 
+  console.log(`[Register] User ${username} (${id}) created successfully`);
+
   if (referrerId) {
     try {
       await db.execute({
@@ -175,19 +191,28 @@ export async function POST(req: Request) {
 
   const welcomeUrl = `${process.env.NEXT_PUBLIC_URL || "https://zimfcpro.co.zw"}/join/${code}`;
 
-  sendEmail({
-    to: email,
-    subject: "Welcome to ZimFC Pro — Your Competitive Journey Starts Now",
-    html: renderWelcomeEmail({
-      username,
-      displayName: username,
-      globalRank: startingRank,
-      division,
-      referralCode: code,
-      referralLink: welcomeUrl,
-      platform,
-    }),
-  });
+  console.log(`[Register] Attempting to send welcome email to ${email}`);
+
+  try {
+    const emailSent = await sendEmail({
+      to: email,
+      subject: "Welcome to ZimFC Pro — Your Competitive Journey Starts Now",
+      html: renderWelcomeEmail({
+        username,
+        displayName: username,
+        globalRank: startingRank,
+        division,
+        referralCode: code,
+        referralLink: welcomeUrl,
+        platform,
+      }),
+    });
+    console.log(`[Register] Welcome email ${emailSent ? "sent" : "not sent (no provider configured)"} to ${email}`);
+  } catch (err) {
+    console.error(`[Register] Failed to send welcome email to ${email}:`, err);
+  }
+
+  console.log(`[Register] Registration complete for ${username}`);
 
   return NextResponse.json({
     user: {

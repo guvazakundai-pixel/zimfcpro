@@ -1,3 +1,4 @@
+const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const SMTP_HOST = process.env.SMTP_HOST || "";
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || "587");
 const SMTP_USER = process.env.SMTP_USER || "";
@@ -12,31 +13,57 @@ interface EmailOptions {
 }
 
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
-    console.log("[Email] SMTP not configured. Would send:", options.subject, "to", options.to);
-    return false;
+  console.log(`[Email] Preparing to send "${options.subject}" to ${options.to}`);
+
+  if (RESEND_API_KEY) {
+    try {
+      const { Resend } = await import("resend");
+      const resend = new Resend(RESEND_API_KEY);
+      const { error } = await resend.emails.send({
+        from: `${FROM_NAME} <${FROM_EMAIL}>`,
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+      });
+      if (error) {
+        console.error("[Email] Resend returned error:", error);
+        return false;
+      }
+      console.log(`[Email] Sent via Resend to ${options.to}`);
+      return true;
+    } catch (err) {
+      console.error("[Email] Resend failed, falling back to nodemailer:", err);
+    }
   }
 
-  try {
-    const { createTransport } = await import("nodemailer");
-    const transporter = createTransport({
-      host: SMTP_HOST,
-      port: SMTP_PORT,
-      secure: SMTP_PORT === 465,
-      auth: { user: SMTP_USER, pass: SMTP_PASS },
-    });
-
-    await transporter.sendMail({
-      from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
-      to: options.to,
-      subject: options.subject,
-      html: options.html,
-    });
-    return true;
-  } catch (err) {
-    console.error("[Email] Failed to send:", err);
-    return false;
+  if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
+    try {
+      const { createTransport } = await import("nodemailer");
+      const transporter = createTransport({
+        host: SMTP_HOST,
+        port: SMTP_PORT,
+        secure: SMTP_PORT === 465,
+        auth: { user: SMTP_USER, pass: SMTP_PASS },
+      });
+      await transporter.sendMail({
+        from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+      });
+      console.log(`[Email] Sent via SMTP to ${options.to}`);
+      return true;
+    } catch (err) {
+      console.error("[Email] SMTP failed:", err);
+      return false;
+    }
   }
+
+  console.log(`[Email] No email provider configured. Would send:`, {
+    to: options.to,
+    subject: options.subject,
+  });
+  return false;
 }
 
 export function renderWelcomeEmail(params: {
@@ -63,7 +90,14 @@ export function renderWelcomeEmail(params: {
     <tr><td style="padding:0 32px">
       <div style="background:rgba(0,255,133,0.06);border:1px solid rgba(0,255,133,0.12);border-radius:16px;padding:24px;text-align:center;margin-bottom:24px">
         <p style="color:#EDEDED;font-size:16px;margin:0 0 4px">Welcome, <strong style="color:#00ff85">${params.displayName || params.username}</strong></p>
-        <p style="color:#666;font-size:12px;margin:0">You are now officially part of the Zimbabwe football esports ecosystem.</p>
+        <p style="color:#8E909A;font-size:13px;margin:0">Thank you for joining ZimFC Pro! We're excited to have you in Zimbabwe's competitive FC ecosystem.</p>
+      </div>
+    </td></tr>
+
+    <tr><td style="padding:0 32px">
+      <div style="background:rgba(34,211,238,0.04);border:1px solid rgba(34,211,238,0.10);border-radius:12px;padding:20px;margin-bottom:24px">
+        <p style="color:#22d3ee;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px">About ZimFC Pro</p>
+        <p style="color:#B0B2BA;font-size:13px;margin:0;line-height:1.6">ZimFC Pro is Zimbabwe's home for competitive EA Sports FC. Play matches, join tournaments, climb divisions, and earn your spot among the nation's elite. Whether you're in Harare, Bulawayo, or anywhere in ZW — the pitch is waiting.</p>
       </div>
     </td></tr>
 
