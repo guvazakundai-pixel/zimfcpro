@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAuthModal } from "@/lib/auth-context";
-import { useSession } from "@/lib/session-client";
+import { useAuthModal, useUser } from "@/lib/auth-context";
+import { useAuthStore } from "@/store/auth-store";
 import { motion, LayoutGroup } from "framer-motion";
 
 const ITEMS = [
@@ -19,8 +19,25 @@ const SPRING_CONFIG = { type: "spring" as const, stiffness: 380, damping: 28 };
 export function BottomNav() {
   const pathname = usePathname();
   const { openAuth } = useAuthModal();
-  const session = useSession();
-  const loggedIn = !!session;
+  const { isAuthenticated, loading } = useUser();
+  const logout = useAuthStore((s) => s.logout);
+
+  if (loading) {
+    return (
+      <nav aria-label="Primary" className="fixed bottom-0 inset-x-0 z-50 pb-[env(safe-area-inset-bottom)]">
+        <div className="mx-auto max-w-lg px-2 pb-2 pt-1">
+          <div className="flex items-center justify-around rounded-[24px] px-1.5 py-3" style={{ background: "rgba(8,8,10,0.94)" }}>
+            <div className="h-[20px] w-[20px] rounded-full bg-white/5 animate-pulse" />
+            <div className="h-[20px] w-[20px] rounded-full bg-white/5 animate-pulse" />
+            <div className="h-[20px] w-[20px] rounded-full bg-white/5 animate-pulse" />
+            <div className="h-[20px] w-[20px] rounded-full bg-white/5 animate-pulse" />
+            <div className="h-[20px] w-[20px] rounded-full bg-white/5 animate-pulse" />
+            <div className="h-[20px] w-[20px] rounded-full bg-white/5 animate-pulse" />
+          </div>
+        </div>
+      </nav>
+    );
+  }
 
   return (
     <nav
@@ -81,40 +98,48 @@ export function BottomNav() {
               </Link>
             );
           })}
-          {loggedIn ? (
-            <Link
-              href="/dashboard"
-              className="touch-snap-subtle relative flex flex-col items-center justify-center gap-0 py-2.5 px-3 sm:px-4 rounded-[14px] transition-colors duration-150 group min-w-0"
-            >
-              <span
-                className={
-                  "h-[20px] w-[20px] grid place-items-center transition-colors duration-150 " +
-                  (pathname.startsWith("/dashboard") ? "text-accent" : "text-muted-soft group-hover:text-ink-soft group-active:text-accent")
-                }
+          {isAuthenticated ? (
+            <div className="flex flex-col items-center gap-0">
+              <Link
+                href="/dashboard"
+                className="touch-snap-subtle relative flex flex-col items-center justify-center gap-0 py-2.5 px-3 sm:px-4 rounded-[14px] transition-colors duration-150 group min-w-0"
               >
-                <UserIcon />
-              </span>
-              <span
-                className={
-                  "text-[8px] font-bold uppercase tracking-[0.16em] transition-colors duration-150 mt-0.5 " +
-                  (pathname.startsWith("/dashboard") ? "text-accent" : "text-muted-faint group-hover:text-muted-soft group-active:text-accent")
-                }
+                <span
+                  className={
+                    "h-[20px] w-[20px] grid place-items-center transition-colors duration-150 " +
+                    (pathname.startsWith("/dashboard") ? "text-accent" : "text-muted-soft group-hover:text-ink-soft group-active:text-accent")
+                  }
+                >
+                  <UserIcon />
+                </span>
+                <span
+                  className={
+                    "text-[8px] font-bold uppercase tracking-[0.16em] transition-colors duration-150 mt-0.5 " +
+                    (pathname.startsWith("/dashboard") ? "text-accent" : "text-muted-faint group-hover:text-muted-soft group-active:text-accent")
+                  }
+                >
+                  Me
+                </span>
+                {pathname.startsWith("/dashboard") && (
+                  <motion.span
+                    layoutId="nav-indicator"
+                    aria-hidden
+                    className="absolute -bottom-0 left-1/2 -translate-x-1/2 h-[2.5px] min-w-[20px] rounded-full"
+                    style={{
+                      background: "var(--accent)",
+                      boxShadow: "0 0 12px rgba(0,255,133,0.4), 0 0 4px rgba(0,255,133,0.2)",
+                    }}
+                    transition={SPRING_CONFIG}
+                  />
+                )}
+              </Link>
+              <button
+                onClick={logout}
+                className="text-[6px] font-bold uppercase tracking-[0.2em] text-negative/50 hover:text-negative transition-colors mt-0"
               >
-                Me
-              </span>
-              {pathname.startsWith("/dashboard") && (
-                <motion.span
-                  layoutId="nav-indicator"
-                  aria-hidden
-                  className="absolute -bottom-0 left-1/2 -translate-x-1/2 h-[2.5px] min-w-[20px] rounded-full"
-                  style={{
-                    background: "var(--accent)",
-                    boxShadow: "0 0 12px rgba(0,255,133,0.4), 0 0 4px rgba(0,255,133,0.2)",
-                  }}
-                  transition={SPRING_CONFIG}
-                />
-              )}
-            </Link>
+                Logout
+              </button>
+            </div>
           ) : (
             <button
               onClick={() => openAuth("signin")}

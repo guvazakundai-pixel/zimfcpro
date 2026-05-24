@@ -30,6 +30,7 @@ type AuthState = {
   setPlayerCount: (count: number) => void;
   setWelcomeData: (data: WelcomeData | null) => void;
   hydrate: () => Promise<void>;
+  rehydrate: () => Promise<void>;
   setUser: (user: AuthUser | null) => void;
   logout: () => Promise<void>;
 };
@@ -91,14 +92,35 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     saveToStorage(null);
   },
 
+  rehydrate: async () => {
+    set({ loading: true });
+    try {
+      const res = await fetch("/api/auth/me", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        const user = data.user as AuthUser;
+        set({ user, loading: false, initialized: true });
+        saveToStorage(user);
+      } else {
+        set({ user: null, loading: false, initialized: true });
+        saveToStorage(null);
+      }
+    } catch {
+      set({ user: null, loading: false, initialized: true });
+      saveToStorage(null);
+    }
+  },
+
   setUser: (user) => {
-    set({ user });
+    set({ user, loading: false, initialized: true });
     saveToStorage(user);
   },
 
   logout: async () => {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-    set({ user: null });
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } catch { /* ignore */ }
+    set({ user: null, loading: false, initialized: true });
     saveToStorage(null);
   },
 }));

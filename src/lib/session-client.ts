@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useAuthStore } from "@/store/auth-store";
 
 type SessionData = {
   userId: string;
@@ -8,28 +8,8 @@ type SessionData = {
   role: string;
 } | null;
 
-let cachedSession: SessionData = null;
-let sessionFetchPromise: Promise<SessionData> | null = null;
-
 export function useSession(): SessionData {
-  const [session, setSession] = useState<SessionData>(cachedSession);
-
-  useEffect(() => {
-    if (cachedSession) {
-      setSession(cachedSession);
-      return;
-    }
-    if (!sessionFetchPromise) {
-      sessionFetchPromise = fetch("/api/auth/me")
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => data?.user ?? null)
-        .catch(() => null);
-    }
-    sessionFetchPromise.then((s) => {
-      cachedSession = s;
-      setSession(s);
-    });
-  }, []);
-
-  return session;
+  const user = useAuthStore((s) => s.user);
+  if (!user) return null;
+  return { userId: user.id, username: user.username, role: user.role };
 }
