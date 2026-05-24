@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getChallengeToken } from "@/lib/match-engine/challenge-token";
+import { acceptChallenge } from "@/lib/match-engine/service";
+import { requireAuth } from "@/lib/route-auth";
 
-export async function GET(req: Request, { params }: { params: Promise<{ token: string }> }) {
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ token: string }> }
+) {
   const { token } = await params;
 
   const tokenData = await getChallengeToken(token);
@@ -52,17 +57,53 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
     expiresAt: tokenData.expiresAt,
     challenger: {
       ...challenger,
-      stats: challengerStats ? {
-        rating: Math.round(challengerStats.skillRating),
-        wins: challengerStats.wins,
-        losses: challengerStats.losses,
-        winStreak: challengerStats.winStreak,
-        matchesPlayed: challengerStats.matchesPlayed,
-        winRate: challengerStats.matchesPlayed > 0
-          ? Math.round((challengerStats.wins / challengerStats.matchesPlayed) * 100)
-          : 0,
-      } : null,
+      stats: challengerStats
+        ? {
+            rating: Math.round(challengerStats.skillRating),
+            wins: challengerStats.wins,
+            losses: challengerStats.losses,
+            winStreak: challengerStats.winStreak,
+            matchesPlayed: challengerStats.matchesPlayed,
+            winRate:
+              challengerStats.matchesPlayed > 0
+                ? Math.round((challengerStats.wins / challengerStats.matchesPlayed) * 100)
+                : 0,
+          }
+        : null,
       rank: challengerRanking?.rankPosition ?? null,
     },
   });
+}
+
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ token: string }> }
+) {
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
+
+  const { token } = await params;
+  const userId = auth.session.userId;
+
+  const tokenData = await getChallengeToken(token);
+  if (!tokenData) {
+    return NextResponse.json({ error: "Challenge link is invalid or expired" }, { status: 404 });
+  }
+  if (tokenData.used) {
+    return NextResponse.json({ error: "Challenge link has already been used" }, { status: 410 });
+  }
+  if (new Date(tokenData.expiresAt) < new Date()) {
+    return NextResponse.json({ error: "Challenge link has expired" }, { status: 410 });
+  }
+
+  if (userId === tokenData.challengerId) {
+    return NextResponse.json({ error: "You cannot accept your own challenge" }, { status: 400 });
+  }
+
+  try {
+    const result = await acceptChallenge(token, userId);
+    return NextResponse.json(result);
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message || "Failed to accept challenge" }, { status: 400 });
+  }
 }

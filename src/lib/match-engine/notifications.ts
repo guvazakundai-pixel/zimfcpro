@@ -18,7 +18,7 @@ export async function sendNotification({
   message,
   link,
 }: SendNotificationParams): Promise<void> {
-  await prisma.notification.create({
+  await prisma.notificationV2.create({
     data: { userId, type, title, message, link },
   });
 

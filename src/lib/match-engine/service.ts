@@ -58,7 +58,7 @@ export async function createChallenge(params: CreateChallengeParams): Promise<{ 
   const matchRequest = await prisma.matchRequest.create({
     data: {
       senderId: params.challengerId,
-      receiverId: params.opponentId ?? "",
+      receiverId: params.opponentId || "",
       status: "PENDING",
       statusRaw: MatchState.PENDING_ACCEPTANCE,
       expiresAt: new Date(Date.now() + 30 * 60 * 1000),
@@ -97,13 +97,24 @@ export async function acceptChallenge(token: string, userId: string): Promise<{ 
   await markTokenUsed(token);
 
   const matchReq = await prisma.matchRequest.findFirst({
-    where: { senderId: tokenData.challengerId, receiverId: userId, statusRaw: MatchState.PENDING_ACCEPTANCE },
+    where: {
+      senderId: tokenData.challengerId,
+      statusRaw: MatchState.PENDING_ACCEPTANCE,
+      OR: [
+        { receiverId: userId },
+        { receiverId: "" },
+      ],
+    },
     orderBy: { createdAt: "desc" },
   });
   if (matchReq) {
     await prisma.matchRequest.update({
       where: { id: matchReq.id },
-      data: { status: "ACCEPTED", statusRaw: MatchState.ACTIVE },
+      data: {
+        status: "ACCEPTED",
+        statusRaw: MatchState.ACTIVE,
+        receiverId: matchReq.receiverId || userId,
+      },
     });
   }
 

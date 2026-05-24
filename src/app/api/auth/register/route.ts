@@ -36,6 +36,11 @@ const RegisterSchema = z.object({
   dateOfBirth: z.string().optional().default(""),
   termsAccepted: z.boolean().refine((v) => v === true, "You must accept the terms"),
   referralCode: z.string().max(20).optional().default(""),
+  allowEmailChallenges: z.boolean().optional().default(true),
+  allowPhoneChallenges: z.boolean().optional().default(false),
+  allowDirectMessages: z.boolean().optional().default(true),
+  allowClubInvites: z.boolean().optional().default(true),
+  allowTournamentInvites: z.boolean().optional().default(true),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match",
   path: ["confirmPassword"],
@@ -66,7 +71,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const { fullName, username, email, password, platform, country, favoriteClub, phone, dateOfBirth, referralCode } = parsed.data;
+  const { fullName, username, email, password, platform, country, favoriteClub, phone, dateOfBirth, referralCode, allowEmailChallenges, allowPhoneChallenges, allowDirectMessages, allowClubInvites, allowTournamentInvites } = parsed.data;
 
   const existing = await db.execute({
     sql: "SELECT id FROM users WHERE username = ? OR email = ? LIMIT 1",
