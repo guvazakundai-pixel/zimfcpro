@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AnimatedTabs, TabContent, type Tab } from "@/components/ui/AnimatedTabs";
 import { AnimatedCounter } from "@/components/ui/AnimatedCounter";
 import { FriendsPanel } from "@/components/FriendsPanel";
+import { StatCharts } from "@/components/StatCharts";
 
 type UserData = {
   id: string;
@@ -640,6 +641,20 @@ export function PlayerHubClient({
 
       <TabContent id="statistics" activeTab={activeTab}>
         <div className="space-y-4">
+          {stats && (
+            <StatCharts
+              stats={stats}
+              formHistory={stats.formHistory}
+              skillRatingHistory={stats.formHistory
+                ? stats.formHistory.slice(-12).split("").map((ch, i) => {
+                    const base = stats.skillRating - 20;
+                    const delta = ch === "W" ? 25 : ch === "D" ? 5 : -15;
+                    return { label: `M${i + 1}`, value: Math.round(base + delta * (i + 1)) };
+                  })
+                : undefined}
+            />
+          )}
+
           <Section title="Career Stats">
             {stats ? (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">

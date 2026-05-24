@@ -17,6 +17,7 @@ import { CommunityFeed } from "@/components/CommunityFeed";
 import { JoinCTA } from "@/components/JoinCTA";
 import { Particles } from "@/components/ui/Particles";
 import { LiveRankingsWidget } from "@/components/LiveRankingsWidget";
+import { LiveMatchTicker } from "@/components/RealtimeComponents";
 import { useAuthStore } from "@/store/auth-store";
 
 function safeNumber(val: number | undefined | null, fallback: number = 0): number {
@@ -105,12 +106,14 @@ export function HomeClient({
   playerCount: playerCountRaw,
   clubCount: clubCountRaw,
   topPlayers = [],
+  liveMatches = [],
 }: {
   totalMatches: number;
   totalGoals: number;
   playerCount: number;
   clubCount: number;
   topPlayers?: TopPlayer[];
+  liveMatches?: { id: string; player1: string; player2: string; score1: number; score2: number; status: string }[];
 }) {
   const mounted = useMounted();
   const [modalPlayerId, setModalPlayerId] = useState<string | null>(null);
@@ -151,6 +154,7 @@ export function HomeClient({
         clubCount={clubCount}
       />
       <BroadcastTicker playerCount={playerCount} />
+      {liveMatches.length > 0 && <LiveMatchTicker matches={liveMatches} />}
       <CreateCTASection />
       <HowItWorksSection />
       <LiveTournamentsCarousel />

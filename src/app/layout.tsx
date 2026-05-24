@@ -11,6 +11,7 @@ import { PageTransition } from "@/components/ui/PageTransition";
 import { HeroSkeleton } from "@/components/ui/Skeleton";
 import { QueryProvider } from "@/lib/query-provider";
 import { SocketProvider } from "@/lib/socket-provider";
+import { NotificationToast } from "@/components/RealtimeComponents";
 import "./globals.css";
 
 const SITE_URL = "https://zimfcpro.vercel.app";
@@ -96,6 +97,7 @@ export default function RootLayout({
             <ErrorBoundary scope="auth-modal">
               <AuthModal />
             </ErrorBoundary>
+            <NotificationToast />
           </ErrorBoundary>
         </AuthProvider>
         </SocketProvider>

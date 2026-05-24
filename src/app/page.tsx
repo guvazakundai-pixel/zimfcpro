@@ -83,8 +83,33 @@ async function getTopPlayers() {
   }
 }
 
+async function getLiveMatches(): Promise<{ id: string; player1: string; player2: string; score1: number; score2: number; status: string }[]> {
+  try {
+    const result = await db.execute({
+      sql: `SELECT m.id, p1.username AS player1, p2.username AS player2,
+                   m.score1, m.score2, m.status
+            FROM matches m
+            LEFT JOIN users p1 ON p1.id = m.player1_id
+            LEFT JOIN users p2 ON p2.id = m.player2_id
+            WHERE m.status = 'LIVE'
+            ORDER BY m.updated_at DESC LIMIT 10`,
+      args: [],
+    });
+    return (result.rows as any[]).map((r) => ({
+      id: r.id as string,
+      player1: (r.player1 as string) || "Player 1",
+      player2: (r.player2 as string) || "Player 2",
+      score1: (r.score1 as number) ?? 0,
+      score2: (r.score2 as number) ?? 0,
+      status: (r.status as string) || "LIVE",
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export default async function HomePage() {
-  const [stats, topPlayers] = await Promise.all([getSiteStats(), getTopPlayers()]);
+  const [stats, topPlayers, liveMatches] = await Promise.all([getSiteStats(), getTopPlayers(), getLiveMatches()]);
 
   return (
     <ErrorBoundary scope="homepage">
@@ -95,6 +120,7 @@ export default async function HomePage() {
           playerCount={stats.playerCount}
           clubCount={stats.clubCount}
           topPlayers={topPlayers}
+          liveMatches={liveMatches}
         />
       </Suspense>
     </ErrorBoundary>
