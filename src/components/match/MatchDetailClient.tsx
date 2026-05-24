@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAuthModal } from "@/lib/auth-context";
 import { useSession } from "@/lib/session-client";
+import { useMatchUpdates } from "@/lib/realtime-updates";
 
 interface MatchPlayer {
   id: string;
@@ -88,6 +89,8 @@ export function MatchDetailClient({ matchId }: { matchId: string }) {
   }, [matchId]);
 
   useEffect(() => { fetchMatch(); }, [fetchMatch]);
+
+  useMatchUpdates(matchId, useCallback(() => { fetchMatch(); }, [fetchMatch]));
 
   const meta = match ? STATUS_META[match.statusRaw] ?? STATUS_META[match.status] ?? { label: match.status, color: "text-muted-soft", glow: "transparent" } : null;
 

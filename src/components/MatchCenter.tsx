@@ -1,8 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { useSession } from "@/lib/session-client";
+import { useAuthModal } from "@/lib/auth-context";
+import { ChallengeModal } from "@/components/match/ChallengeModal";
+import { useRealtime } from "@/lib/realtime-updates";
 
 type MatchPlayer = {
   id: string;
@@ -104,14 +108,69 @@ function timeAgo(dateStr: string) {
 }
 
 export function MatchCenter({
-  matches = [],
-  stats,
-  onChallenge,
-  onViewMatch,
+  matches: propMatches,
+  stats: propStats,
+  onChallenge: propOnChallenge,
+  onViewMatch: propOnViewMatch,
   className = "",
 }: MatchCenterProps) {
+  const session = useSession();
+  const { openAuth } = useAuthModal();
+
   const [filter, setFilter] = useState<string>("all");
   const [challengeSearch, setChallengeSearch] = useState("");
+  const [challengeTarget, setChallengeTarget] = useState<{ id: string; name: string } | null>(null);
+  const [showChallenge, setShowChallenge] = useState(false);
+
+  const [fetchedMatches, setFetchedMatches] = useState<MatchItem[]>([]);
+  const [fetchedStats, setFetchedStats] = useState<MatchStats | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const isSelfFetching = propMatches === undefined;
+
+  const fetchData = useCallback(async () => {
+    if (!isSelfFetching || !session?.userId) return;
+    setLoading(true);
+    try {
+      const [matchesRes, hubRes] = await Promise.all([
+        fetch(`/api/matches?limit=50&player=${session.userId}`),
+        fetch(`/api/player/hub`).catch(() => null),
+      ]);
+      const matchesData = await matchesRes.json();
+      setFetchedMatches(matchesData.matches ?? []);
+      if (hubRes?.ok) {
+        const hubData = await hubRes.json();
+        const ps = hubData.stats ?? hubData.playerStats ?? {};
+        setFetchedStats({
+          totalMatches: ps.matchesPlayed ?? ps.totalMatches ?? 0,
+          wins: ps.wins ?? 0,
+          losses: ps.losses ?? 0,
+          draws: ps.draws ?? 0,
+          winRate: ps.matchesPlayed > 0 ? Math.round((ps.wins / ps.matchesPlayed) * 100) : 0,
+          currentStreak: ps.winStreak ?? ps.currentStreak ?? 0,
+          bestStreak: ps.bestStreak ?? 0,
+        });
+      }
+    } catch {
+    } finally {
+      setLoading(false);
+    }
+  }, [isSelfFetching, session?.userId]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  useRealtime("match-updated", useCallback(() => { fetchData(); }, [fetchData]));
+
+  const matches = propMatches ?? fetchedMatches;
+  const stats = propStats ?? fetchedStats;
+  const onChallenge = propOnChallenge ?? (() => {
+    if (!session) { openAuth("signin"); return; }
+    setChallengeTarget(null);
+    setShowChallenge(true);
+  });
+  const onViewMatch = propOnViewMatch ?? ((id: string) => {
+    window.location.href = `/matches/${id}`;
+  });
 
   const filtered = useMemo(() => {
     if (filter === "all") return matches;
@@ -238,6 +297,18 @@ export function MatchCenter({
               border: "1px solid rgba(255,255,255,0.06)",
             }}
           />
+          {challengeSearch.length >= 2 && (
+            <PlayerSearchDropdown
+              query={challengeSearch}
+              onSelect={(player) => {
+                if (!session) { openAuth("signin"); return; }
+                setChallengeTarget({ id: player.id, name: player.displayName || player.username });
+                setShowChallenge(true);
+                setChallengeSearch("");
+              }}
+              onClose={() => setChallengeSearch("")}
+            />
+          )}
         </div>
       </motion.div>
 
@@ -322,6 +393,40 @@ export function MatchCenter({
         )}
       </motion.div>
 
+      {/* Loading State */}
+      {isSelfFetching && loading && matches.length === 0 && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="frosted-card-sm p-5 rounded-[18px] animate-pulse">
+              <div className="h-5 w-3/4 rounded bg-bg-highlight/50" />
+            </div>
+          ))}
+        </motion.div>
+      )}
+
+      {/* Not signed in */}
+      {isSelfFetching && !session && (
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+          className="frosted-card-sm p-10 text-center rounded-[18px]"
+        >
+          <LightningIcon className="h-8 w-8 mx-auto mb-3 text-muted-faint" />
+          <p className="text-sm text-muted-soft mb-4">Sign in to play matches and track your record</p>
+          <button onClick={() => openAuth("signin")}
+            className="h-12 rounded-[14px] cta-primary px-6 text-sm font-bold tracking-wider"
+          >
+            Sign In
+          </button>
+        </motion.div>
+      )}
+
+      {/* Challenge Modal */}
+      <ChallengeModal
+        open={showChallenge}
+        onClose={() => { setShowChallenge(false); setChallengeTarget(null); }}
+        opponentId={challengeTarget?.id}
+        opponentName={challengeTarget?.name}
+      />
+
       {/* Recent History (condensed) */}
       {recentCompleted.length > 0 && (
         <motion.div
@@ -369,6 +474,73 @@ export function MatchCenter({
             ))}
           </div>
         </motion.div>
+      )}
+    </div>
+  );
+}
+
+function PlayerSearchDropdown({
+  query,
+  onSelect,
+  onClose,
+}: {
+  query: string;
+  onSelect: (player: { id: string; username: string; displayName: string | null }) => void;
+  onClose: () => void;
+}) {
+  const [results, setResults] = useState<{ id: string; username: string; displayName: string | null }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (query.length < 2) { setResults([]); return; }
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
+        const data = await res.json();
+        setResults((data.users ?? []).slice(0, 8));
+      } catch { setResults([]); }
+      setLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [onClose]);
+
+  if (results.length === 0 && !loading) return null;
+
+  return (
+    <div
+      ref={ref}
+      className="absolute z-50 left-0 right-0 top-full mt-1 rounded-[16px] border border-border-faint bg-bg-elevated/95 backdrop-blur-2xl shadow-2xl overflow-hidden"
+    >
+      {loading ? (
+        <div className="p-4 text-center">
+          <span className="h-4 w-4 rounded-full border-2 border-accent/30 border-t-accent animate-spin inline-block" />
+        </div>
+      ) : (
+        results.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => onSelect(p)}
+            className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-white/[0.03] transition-colors border-b border-border-faint last:border-0"
+          >
+            <div className="h-8 w-8 rounded-[10px] bg-accent/10 border border-accent/15 grid place-items-center shrink-0">
+              <span className="text-[11px] font-bold text-accent">{(p.displayName || p.username)[0]}</span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-ink truncate">{p.displayName || p.username}</p>
+              <p className="font-mono text-[10px] text-muted-soft">@{p.username}</p>
+            </div>
+          </button>
+        ))
       )}
     </div>
   );

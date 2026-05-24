@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, type ReactNode } from "react"
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { DivisionProgressBar } from "@/components/DivisionProgress";
 
 type ProfileData = {
   user: {
@@ -341,6 +342,11 @@ function OverviewPanel({ data, winRate, goalDiff, formArr }: { data: ProfileData
   const { ranking, stats } = data;
   return (
     <div className="space-y-4">
+      {stats && (
+        <div className="frosted-card-sm p-4 sm:p-5 rounded-[18px] sm:rounded-[20px] w-full min-w-0">
+          <DivisionProgressBar skillRating={stats.skillRating} showAnimation />
+        </div>
+      )}
       <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
         <StatCard label="Rank" value={ranking ? `#${ranking.rankPosition}` : "—"} accent={!!ranking} variant="cyan" />
         <StatCard label="Points" value={ranking?.points ?? stats?.points ?? 0} variant="emerald" />
