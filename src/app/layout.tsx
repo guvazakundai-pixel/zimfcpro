@@ -10,6 +10,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { HeroSkeleton } from "@/components/ui/Skeleton";
 import { QueryProvider } from "@/lib/query-provider";
+import { SocketProvider } from "@/lib/socket-provider";
 import "./globals.css";
 
 const SITE_URL = "https://zimfcpro.vercel.app";
@@ -67,6 +68,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-dynamic bg-bg text-ink antialiased overflow-x-hidden" suppressHydrationWarning>
         <QueryProvider>
+        <SocketProvider>
         <AuthProvider>
           <ErrorBoundary scope="app-shell">
             <Suspense fallback={null}>
@@ -96,6 +98,7 @@ export default function RootLayout({
             </ErrorBoundary>
           </ErrorBoundary>
         </AuthProvider>
+        </SocketProvider>
         </QueryProvider>
       </body>
     </html>

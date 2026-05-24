@@ -9,6 +9,7 @@ import { HeroSkeleton } from "@/components/ui/Skeleton";
 import { PlayerDetailModal } from "@/components/PlayerDetailModal";
 import { SpotlightCard } from "@/components/SpotlightCard";
 import { PLAYERS } from "@/lib/players";
+import type { Division, FormResult } from "@/lib/players";
 import { LiveTournamentsCarousel } from "@/components/LiveTournamentsCarousel";
 import { ActiveLeaguesSection } from "@/components/ActiveLeaguesSection";
 import { TrendingClubs } from "@/components/TrendingClubs";
@@ -21,6 +22,11 @@ import { useAuthStore } from "@/store/auth-store";
 function safeNumber(val: number | undefined | null, fallback: number = 0): number {
   if (val === null || val === undefined || !Number.isFinite(val)) return fallback;
   return val;
+}
+
+function parseFormHistory2(history: string): FormResult[] {
+  if (!history) return [];
+  return history.split("").filter((c): c is FormResult => c === "W" || c === "L" || c === "D");
 }
 
 function useMounted(): boolean {
@@ -77,16 +83,34 @@ function useLivePlayerCount(initialCount: number): number {
   return count;
 }
 
+type TopPlayer = {
+  id: string;
+  rank: number;
+  username: string;
+  displayName: string;
+  avatarUrl: string | null;
+  city: string;
+  points: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  skillRating: number;
+  winStreak: number;
+  formHistory: string;
+};
+
 export function HomeClient({
   totalMatches: totalMatchesRaw,
   totalGoals: totalGoalsRaw,
   playerCount: playerCountRaw,
   clubCount: clubCountRaw,
+  topPlayers = [],
 }: {
   totalMatches: number;
   totalGoals: number;
   playerCount: number;
   clubCount: number;
+  topPlayers?: TopPlayer[];
 }) {
   const mounted = useMounted();
   const [modalPlayerId, setModalPlayerId] = useState<string | null>(null);
@@ -134,7 +158,7 @@ export function HomeClient({
       <LiveRankingsWidget />
       <TrendingClubs />
       <CommunityFeed />
-      <SpotlightSection onSelect={setModalPlayerId} />
+      <SpotlightSection onSelect={setModalPlayerId} topPlayers={topPlayers} />
       <JoinCTA />
       {modalPlayer && (
         <PlayerDetailModal player={modalPlayer} onClose={() => setModalPlayerId(null)} allPlayers={PLAYERS} />
@@ -685,10 +709,34 @@ function HowItWorksSection() {
   );
 }
 
-function SpotlightSection({ onSelect }: { onSelect: (id: string) => void }) {
-  const spotlightPlayers = useMemo(() => {
+function SpotlightSection({ onSelect, topPlayers }: { onSelect: (id: string) => void; topPlayers: TopPlayer[] }) {
+  const hasRealData = topPlayers.length > 0;
+
+  const spotlightItems = useMemo(() => {
+    if (hasRealData) {
+      return topPlayers.slice(0, 5).map((p) => ({
+        id: p.id,
+        rank: p.rank,
+        prev: p.rank,
+        name: p.displayName || p.username,
+        gamertag: p.username,
+        city: p.city || "Harare",
+        division: "Pro" as Division,
+        points: p.points,
+        wins: p.wins,
+        losses: p.losses,
+        draws: p.draws,
+        goalsFor: 0,
+        goalsAgainst: 0,
+        gpm: 0,
+        form: parseFormHistory2(p.formHistory),
+        prizeMoney: 0,
+        winStreak: p.winStreak,
+        hardware: { controller: "N/A", monitor: "N/A", console: "N/A" },
+      }));
+    }
     return PLAYERS.filter((p) => p.rank <= 5);
-  }, []);
+  }, [hasRealData, topPlayers]);
 
   return (
     <section className="relative py-16 sm:py-24">
@@ -719,7 +767,7 @@ function SpotlightSection({ onSelect }: { onSelect: (id: string) => void }) {
         </motion.div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 auto-rows-fr">
-          {spotlightPlayers.map((player, i) => (
+          {spotlightItems.map((player, i) => (
             <SpotlightCard key={player.id} player={player} index={i} onSelect={onSelect} />
           ))}
         </div>

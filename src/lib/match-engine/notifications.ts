@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { notifyUser } from "@/server/socket";
 
 type NotificationType = "CHALLENGE" | "MATCH" | "RANK" | "CLUB" | "TOURNAMENT" | "ACHIEVEMENT";
 
@@ -20,6 +21,13 @@ export async function sendNotification({
   await prisma.notification.create({
     data: { userId, type, title, message, link },
   });
+
+  // Also emit real-time via socket
+  try {
+    notifyUser(userId, { type, title, message, link });
+  } catch {
+    // Socket emission is best-effort
+  }
 }
 
 export async function notifyChallengeReceived(userId: string, challengerName: string, token: string): Promise<void> {

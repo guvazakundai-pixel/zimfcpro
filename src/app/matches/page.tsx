@@ -1,68 +1,65 @@
-"use client";
+import { getSession } from "@/lib/session";
+import { prisma } from "@/lib/prisma";
+import { MatchesPageClient } from "@/app/matches/MatchesPageClient";
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { MatchCenter } from "@/components/MatchCenter";
-import { MatchHistoryClient } from "@/components/match/MatchHistoryClient";
+export const dynamic = "force-dynamic";
 
-export default function MatchesPage() {
-  const [tab, setTab] = useState<"play" | "history">("play");
+async function getMatchData() {
+  const session = await getSession();
+  if (!session) return { matches: [], stats: null, userId: null };
 
-  return (
-    <div className="broadcast-theme min-h-screen bc-grain">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-4 pb-28">
-        <div className="flex gap-1.5 mb-6 bg-bg-elevated/40 rounded-[14px] p-1 border border-border-faint">
-          <button
-            onClick={() => setTab("play")}
-            className={`flex-1 h-10 rounded-[10px] text-[10px] font-black tracking-[0.14em] uppercase transition-all duration-200 ${
-              tab === "play"
-                ? "bg-accent/15 text-accent shadow-sm"
-                : "text-muted-soft hover:text-ink"
-            }`}
-          >
-            Play
-          </button>
-          <button
-            onClick={() => setTab("history")}
-            className={`flex-1 h-10 rounded-[10px] text-[10px] font-black tracking-[0.14em] uppercase transition-all duration-200 ${
-              tab === "history"
-                ? "bg-accent/15 text-accent shadow-sm"
-                : "text-muted-soft hover:text-ink"
-            }`}
-          >
-            My Matches
-          </button>
-        </div>
+  const userId = session.userId;
 
-        <AnimatePresence mode="wait">
-          {tab === "play" && (
-            <motion.div
-              key="play"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2 }}
-            >
-              <MatchCenter />
-            </motion.div>
-          )}
-          {tab === "history" && (
-            <motion.div
-              key="history"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ duration: 0.2 }}
-            >
-              <div className="mb-6">
-                <p className="text-[10px] font-black uppercase tracking-widest text-accent">Match History</p>
-                <h1 className="mt-1 text-3xl sm:text-4xl text-ink">Your Battles</h1>
-              </div>
-              <MatchHistoryClient />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
-  );
+  try {
+    const [matches, stats] = await Promise.all([
+      prisma.matchReport.findMany({
+        where: {
+          OR: [{ player1Id: userId }, { player2Id: userId }],
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        include: {
+          player1: { select: { id: true, username: true, displayName: true } },
+          player2: { select: { id: true, username: true, displayName: true } },
+        },
+      }),
+      prisma.playerStats.findUnique({ where: { userId } }),
+    ]);
+
+    return {
+      matches: matches.map((m) => ({
+        id: m.id,
+        player1: m.player1,
+        player2: m.player2,
+        score1: m.score1,
+        score2: m.score2,
+        status: m.status,
+        statusRaw: m.statusRaw,
+        isDisputed: m.isDisputed,
+        winnerId: m.winnerId,
+        createdAt: m.createdAt.toISOString(),
+      })),
+      stats: stats
+        ? {
+            totalMatches: stats.matchesPlayed,
+            wins: stats.wins,
+            losses: stats.losses,
+            draws: stats.draws,
+            winRate: stats.matchesPlayed > 0 ? Math.round((stats.wins / stats.matchesPlayed) * 100) : 0,
+            currentStreak: stats.winStreak,
+            bestStreak: stats.winStreak,
+          }
+        : null,
+      userId,
+    };
+  } catch (err) {
+    console.error("[matches page]", err);
+    return { matches: [], stats: null, userId };
+  }
+}
+
+export default async function MatchesPage() {
+  const data = await getMatchData();
+
+  return <MatchesPageClient initialMatches={data.matches} initialStats={data.stats} userId={data.userId} />;
 }

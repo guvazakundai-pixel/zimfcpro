@@ -9,10 +9,8 @@ import {
 } from "react";
 import {
   PLAYERS,
-  CITIES,
-  DIVISIONS,
 } from "@/lib/players";
-import type { Player, Division, City } from "@/lib/players";
+import type { Player, Division } from "@/lib/players";
 import { CLUBS, clubByPlayerId } from "@/lib/clubs";
 import type { Club } from "@/lib/clubs";
 import { useAuthModal } from "@/lib/auth-context";
@@ -28,6 +26,11 @@ import {
   eloTierEmoji,
 } from "@/lib/stats";
 import type { SparklineBar } from "@/lib/stats";
+
+function parseFormHistory(history: string): FormResult[] {
+  if (!history) return [];
+  return history.split("").filter((c): c is FormResult => c === "W" || c === "L" || c === "D");
+}
 
 type SortKey = "rank" | "points" | "winRate" | "gd" | "streak";
 type SortDir = "asc" | "desc";
@@ -211,15 +214,36 @@ function generateAIReport(p: Player, stats: ReturnType<typeof computeDerived>) {
   return lines.join(" ");
 }
 
-export function RankingsClient() {
+type LivePlayer = {
+  id: string;
+  rank: number;
+  prev: number;
+  username: string;
+  displayName: string;
+  avatarUrl: string | null;
+  country: string;
+  city: string;
+  points: number;
+  finalScore: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  skillRating: number;
+  winStreak: number;
+  formHistory: string;
+  mvpCount: number;
+  rankChange: number;
+};
+
+export function RankingsClient({ livePlayers }: { livePlayers?: LivePlayer[] }) {
   const [query, setQuery] = useState("");
-  const [city, setCity] = useState<City | "All">("All");
-  const [division, setDivision] = useState<Division | "All">("All");
+  const [city, setCity] = useState<string>("All");
   const [sortKey, setSortKey] = useState<SortKey>("rank");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [swipedId, setSwipedId] = useState<string | null>(null);
   const [challengeTarget, setChallengeTarget] = useState<{ id: string; name: string } | null>(null);
   const [loggedIn, setLoggedIn] = useState(false);
   const { openAuth } = useAuthModal();
@@ -228,13 +252,37 @@ export function RankingsClient() {
     fetch("/api/auth/me").then(r => r.ok ? r.json() : null).then(d => setLoggedIn(!!d?.user)).catch(() => {});
   }, []);
 
+  const hasLiveData = livePlayers && livePlayers.length > 0;
+
   const sortedPlayers = useMemo(() => {
     const q = query.trim().toLowerCase();
-    let filtered = PLAYERS.filter((p) => {
+    const source = hasLiveData
+      ? livePlayers!.map((p) => ({
+          id: p.id,
+          rank: p.rank,
+          prev: p.prev,
+          name: p.displayName || p.username,
+          gamertag: p.username,
+          city: p.city || "Harare",
+          division: "Pro" as Division,
+          points: p.points,
+          wins: p.wins,
+          losses: p.losses,
+          draws: p.draws,
+          goalsFor: p.goalsFor,
+          goalsAgainst: p.goalsAgainst,
+          gpm: p.wins > 0 ? p.goalsFor / Math.max(1, p.wins + p.losses + p.draws) : 0,
+          form: parseFormHistory(p.formHistory),
+          prizeMoney: 0,
+          winStreak: p.winStreak,
+          hardware: { controller: "N/A", monitor: "N/A", console: "N/A" },
+        }))
+      : PLAYERS;
+
+    let filtered = source.filter((p) => {
       if (city !== "All" && p.city !== city) return false;
-      if (division !== "All" && p.division !== division) return false;
       if (q) {
-        const club = clubByPlayerId(p.id);
+        const club = hasLiveData ? null : clubByPlayerId(p.id);
         return (
           p.name.toLowerCase().includes(q) ||
           p.gamertag.toLowerCase().includes(q) ||
@@ -251,7 +299,7 @@ export function RankingsClient() {
       const cmp = av < bv ? -1 : av > bv ? 1 : 0;
       return sortDir === "asc" ? cmp : -cmp;
     });
-  }, [query, city, division, sortKey, sortDir]);
+  }, [query, city, sortKey, sortDir, livePlayers, hasLiveData]);
 
   const cityRankMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -260,8 +308,8 @@ export function RankingsClient() {
   }, [sortedPlayers]);
 
   const selectedPlayer = useMemo(
-    () => PLAYERS.find((p) => p.id === selectedId) ?? null,
-    [selectedId]
+    () => sortedPlayers.find((p) => p.id === selectedId) ?? null,
+    [selectedId, sortedPlayers]
   );
   const selectedClub = useMemo(
     () => selectedPlayer ? clubByPlayerId(selectedPlayer.id) ?? null : null,
@@ -278,9 +326,12 @@ export function RankingsClient() {
   const handleChallenge = useCallback((playerId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!loggedIn) { openAuth("signin"); return; }
-    const p = PLAYERS.find((pl) => pl.id === playerId);
-    setChallengeTarget(p ? { id: p.id, name: p.gamertag } : { id: playerId, name: playerId });
-  }, [loggedIn, openAuth]);
+    const source = hasLiveData ? livePlayers! : [];
+    const p = hasLiveData
+      ? source.find((pl: LivePlayer) => pl.id === playerId)
+      : PLAYERS.find((pl) => pl.id === playerId);
+    setChallengeTarget(p ? { id: p.id, name: hasLiveData ? (p as LivePlayer).username : (p as Player).gamertag } : { id: playerId, name: playerId });
+  }, [loggedIn, openAuth, hasLiveData, livePlayers]);
 
   const handleSort = useCallback((k: SortKey) => {
     setSortKey((prev) => {
@@ -304,13 +355,11 @@ export function RankingsClient() {
         onQuery={setQuery}
         city={city}
         onCity={setCity}
-        division={division}
-        onDivision={setDivision}
         sortKey={sortKey}
         sortDir={sortDir}
         onSort={handleSort}
         totalShown={sortedPlayers.length}
-        totalAll={PLAYERS.length}
+        totalAll={hasLiveData ? livePlayers!.length : PLAYERS.length}
       />
       <div className="mx-auto max-w-4xl px-3 sm:px-6 pt-4 pb-28">
         {sortedPlayers.length === 0 ? (
@@ -334,7 +383,7 @@ export function RankingsClient() {
         <PlayerDetailModal
           player={selectedPlayer}
           onClose={() => setSheetOpen(false)}
-          allPlayers={PLAYERS}
+          allPlayers={hasLiveData ? [] : PLAYERS}
         />
       )}
       <ChallengeModal
@@ -391,15 +440,13 @@ function Header() {
 }
 
 function FilterBar({
-  query, onQuery, city, onCity, division, onDivision,
+  query, onQuery, city, onCity,
   sortKey, sortDir, onSort, totalShown, totalAll,
 }: {
   query: string;
   onQuery: (q: string) => void;
-  city: City | "All";
-  onCity: (c: City | "All") => void;
-  division: Division | "All";
-  onDivision: (d: Division | "All") => void;
+  city: string;
+  onCity: (c: string) => void;
   sortKey: SortKey;
   sortDir: SortDir;
   onSort: (k: SortKey) => void;
@@ -433,11 +480,11 @@ function FilterBar({
 
         <div className="flex items-center gap-2 overflow-x-auto bc-no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">
           <div className="flex items-center gap-1 rounded-[12px] bg-bg-elevated/40 border border-border-faint p-0.5">
-            {["All", ...CITIES].map((c) => (
+            {["All", "Harare", "Bulawayo", "Mutare", "Gweru", "Masvingo"].map((c) => (
               <button
                 key={c}
                 type="button"
-                onClick={() => onCity(c as City | "All")}
+                onClick={() => onCity(c)}
                 className={
                   "shrink-0 inline-flex items-center gap-1.5 h-7 px-3 rounded-[9px] text-[10px] font-black tracking-[0.16em] uppercase transition-all duration-200 " +
                   (city === c
@@ -449,7 +496,6 @@ function FilterBar({
               </button>
             ))}
           </div>
-          <FilterChip label="Division" value={division} onChange={(v) => onDivision(v as Division | "All")} options={[{ value: "All", label: "All" }, ...DIVISIONS.map((d) => ({ value: d, label: d }))]} />
         </div>
 
         <div className="flex items-center gap-1.5 overflow-x-auto bc-no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">

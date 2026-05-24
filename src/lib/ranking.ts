@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { emitRankingUpdate } from "@/server/socket";
 
 export type PlayerStatsInput = {
   wins: number;
@@ -157,6 +158,11 @@ export async function recomputePlayerRankings(): Promise<{ updated: number }> {
       });
     }
   });
+
+  // Emit real-time ranking update
+  try {
+    emitRankingUpdate({ updated: scored.length, timestamp: new Date().toISOString() });
+  } catch {}
 
   return { updated: scored.length };
 }

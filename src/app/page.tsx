@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { Suspense } from "react";
 import { ErrorBoundary, ScopedErrorBoundary } from "@/components/ErrorBoundary";
 import { HomeClient } from "@/components/HomeClient";
@@ -35,8 +36,55 @@ async function getSiteStats(): Promise<{
   }
 }
 
+async function getTopPlayers() {
+  try {
+    const top = await prisma.playerRanking.findMany({
+      take: 10,
+      orderBy: { rankPosition: "asc" },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+            avatarUrl: true,
+            city: true,
+            playerStats: {
+              select: {
+                wins: true,
+                losses: true,
+                draws: true,
+                skillRating: true,
+                winStreak: true,
+                formHistory: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    return top.map((r) => ({
+      id: r.user.id,
+      rank: r.rankPosition,
+      username: r.user.username,
+      displayName: r.user.displayName ?? r.user.username,
+      avatarUrl: r.user.avatarUrl,
+      city: r.user.city ?? "Harare",
+      points: r.points,
+      wins: r.user.playerStats?.wins ?? 0,
+      losses: r.user.playerStats?.losses ?? 0,
+      draws: r.user.playerStats?.draws ?? 0,
+      skillRating: r.user.playerStats?.skillRating ?? 1000,
+      winStreak: r.user.playerStats?.winStreak ?? 0,
+      formHistory: r.user.playerStats?.formHistory ?? "",
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export default async function HomePage() {
-  const stats = await getSiteStats();
+  const [stats, topPlayers] = await Promise.all([getSiteStats(), getTopPlayers()]);
 
   return (
     <ErrorBoundary scope="homepage">
@@ -46,6 +94,7 @@ export default async function HomePage() {
           totalGoals={stats.totalGoals}
           playerCount={stats.playerCount}
           clubCount={stats.clubCount}
+          topPlayers={topPlayers}
         />
       </Suspense>
     </ErrorBoundary>
