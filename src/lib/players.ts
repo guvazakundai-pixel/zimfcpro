@@ -1,3 +1,4 @@
+/** @deprecated Use rankings API (/api/rankings/top) instead of this fake data */
 export type Division = "Elite" | "Pro" | "Challenger" | "Rookie";
 export type City =
   | "Harare"

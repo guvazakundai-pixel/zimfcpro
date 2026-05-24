@@ -1,3 +1,4 @@
+/** @deprecated Uses fake PLAYERS array. Import ranking functions from @/lib/ranking instead. */
 import { PLAYERS, type Player, CITIES } from "./players";
 
 /* ─── Form Sparkline ─── */

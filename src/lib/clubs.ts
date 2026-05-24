@@ -1,3 +1,4 @@
+/** @deprecated This file contains fake/hardcoded data. Use DB queries instead. */
 import type { City } from "./players";
 
 export type Club = {

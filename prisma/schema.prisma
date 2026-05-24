@@ -11,6 +11,7 @@ datasource db {
 model User {
   id                      String    @id @default(uuid())
   displayName             String?   @map("display_name")
+  fullName                String?   @map("full_name")
   username                String    @unique
   email                   String    @unique
   passwordHash            String    @map("password_hash")
@@ -23,6 +24,15 @@ model User {
   city                    String?
   phone                   String?
   whatsapp                String?
+  dateOfBirth             DateTime? @map("date_of_birth")
+  favoriteClub            String?   @map("favorite_club")
+  termsAccepted           Boolean   @default(false) @map("terms_accepted")
+  termsAcceptedAt         DateTime? @map("terms_accepted_at")
+  referralCode            String?   @unique @map("referral_code")
+  referredBy              String?   @map("referred_by")
+  referralXp              Int       @default(0) @map("referral_xp")
+  referralCount           Int       @default(0) @map("referral_count")
+  isFake                  Boolean   @default(false) @map("is_fake")
   isShadowBanned          Boolean   @default(false) @map("is_shadow_banned")
   isVerified              Boolean   @default(false) @map("is_verified")
   isBanned                Boolean   @default(false) @map("is_banned")
@@ -41,10 +51,13 @@ model User {
   managedClubId String? @unique @map("managed_club_id")
   managedClub   Club?   @relation("ClubManager")
 
+  fantasyTeam FantasyTeam?
+
   memberships     ClubMember[]
   clubRankings    ClubRanking[]
   playerRanking   PlayerRanking?
   playerStats     PlayerStats?
+  weeklyPoints    WeeklyPoints[]
   mediaUploads    Media[]
   applications    ManagerApplication[] @relation("UserApplications")
   reviews         ManagerApplication[] @relation("ReviewedByUser")
@@ -107,6 +120,39 @@ model User {
   userActivities           UserActivity[]
 
   @@map("users")
+}
+
+model FantasyTeam {
+  id            String   @id @default(uuid())
+  userId        String   @unique @map("user_id")
+  teamName      String   @map("team_name")
+  managerName   String?  @map("manager_name")
+  budget        Float    @default(100.0)
+  teamValue     Float    @default(0) @map("team_value")
+  transfersUsed Int      @default(0) @map("transfers_used")
+  formation     String   @default("4-3-3")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("fantasy_teams")
+}
+
+model WeeklyPoints {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  week      Int      @map("week")
+  season    Int      @default(1) @map("season")
+  points    Int      @default(0)
+  rank      Int?     @map("rank")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, week, season])
+  @@index([week, season, points])
+  @@map("weekly_points")
 }
 
 model Club {
@@ -314,6 +360,9 @@ model PlayerRanking {
 
   user User @relation(fields: [userId], references: [id])
 
+  @@index([rankPosition])
+  @@index([points])
+  @@index([finalScore])
   @@map("player_rankings")
 }
 

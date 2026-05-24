@@ -66,6 +66,67 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
   return false;
 }
 
+export function renderVerificationEmail(params: {
+  username: string;
+  verifyUrl: string;
+}): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#0D0D0F;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 20px">
+  <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#111214;border-radius:24px;border:1px solid rgba(255,255,255,0.06)">
+    <tr><td style="padding:40px 32px 32px;text-align:center">
+      <h1 style="color:#00ff85;font-size:28px;font-weight:900;letter-spacing:-0.5px;margin:0 0 8px;text-transform:uppercase">ZimFC Pro</h1>
+      <p style="color:#8E909A;font-size:14px;margin:0 0 32px">Verify Your Email Address</p>
+    </td></tr>
+    <tr><td style="padding:0 32px">
+      <p style="color:#EDEDED;font-size:16px;margin:0 0 16px">Hi <strong style="color:#00ff85">${params.username}</strong>,</p>
+      <p style="color:#B0B2BA;font-size:14px;margin:0 0 24px;line-height:1.6">Welcome to ZimFC Pro! Please verify your email address by clicking the button below. This helps us keep your account secure.</p>
+    </td></tr>
+    <tr><td style="padding:0 32px 32px;text-align:center">
+      <a href="${params.verifyUrl}" style="display:inline-block;padding:14px 32px;background:#00ff85;color:#000;text-decoration:none;font-weight:700;font-size:14px;border-radius:12px;text-transform:uppercase;letter-spacing:1px">Verify Email Address</a>
+      <p style="color:#6B6D78;font-size:12px;margin:16px 0 0">Or copy this link: <span style="color:#22d3ee;font-size:11px;word-break:break-all">${params.verifyUrl}</span></p>
+      <p style="color:#6B6D78;font-size:11px;margin:12px 0 0">This link expires in 24 hours. If you didn't create an account, you can ignore this email.</p>
+    </td></tr>
+  </table>
+</td></tr></table>
+</body>
+</html>`;
+}
+
+export function renderPasswordResetEmail(params: {
+  username: string;
+  code: string;
+}): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#0D0D0F;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 20px">
+  <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#111214;border-radius:24px;border:1px solid rgba(255,255,255,0.06)">
+    <tr><td style="padding:40px 32px 32px;text-align:center">
+      <h1 style="color:#00ff85;font-size:28px;font-weight:900;letter-spacing:-0.5px;margin:0 0 8px;text-transform:uppercase">ZimFC Pro</h1>
+      <p style="color:#8E909A;font-size:14px;margin:0 0 32px">Password Reset Code</p>
+    </td></tr>
+    <tr><td style="padding:0 32px">
+      <p style="color:#EDEDED;font-size:16px;margin:0 0 16px">Hi <strong style="color:#00ff85">${params.username}</strong>,</p>
+      <p style="color:#B0B2BA;font-size:14px;margin:0 0 24px;line-height:1.6">We received a request to reset your password. Use the code below to set a new password. This code expires in 15 minutes.</p>
+    </td></tr>
+    <tr><td style="padding:0 32px 24px;text-align:center">
+      <div style="display:inline-block;background:rgba(0,255,133,0.08);border:1px solid rgba(0,255,133,0.20);border-radius:16px;padding:20px 40px;letter-spacing:8px;font-size:36px;font-weight:900;color:#00ff85;font-family:monospace">${params.code}</div>
+    </td></tr>
+    <tr><td style="padding:0 32px 32px;text-align:center">
+      <p style="color:#6B6D78;font-size:12px;margin:0">If you didn't request a password reset, you can safely ignore this email.</p>
+    </td></tr>
+  </table>
+</td></tr></table>
+</body>
+</html>`;
+}
+
 export function renderWelcomeEmail(params: {
   username: string;
   displayName: string;

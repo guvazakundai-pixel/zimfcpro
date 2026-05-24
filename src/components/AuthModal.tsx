@@ -14,6 +14,15 @@ const PLATFORMS = [
   { value: "PC", label: "PC (EA App)" },
 ] as const;
 
+const ZIMBABWEAN_CLUBS = [
+  "Caps United", "Dynamos", "Highlanders", "ZPC Kariba",
+  "Chicken Inn", "Ngezi Platinum", "Bulawayo Chiefs",
+  "GreenFuel", "Manica Diamonds", "Herentals",
+  "TelOne", "Black Rhinos", "Yadah", "Hwange",
+  "Sheasham", "Arenel Movers", "Mwana Africa", "Simba Bhora",
+  "Bikita Minerals", "Chegutu Pirates", "Other",
+] as const;
+
 export function AuthModal() {
   const { open, tab: initialTab, closeAuth, resetEmail: initialResetEmail } = useAuthModal();
   const [tab, setTab] = useState<Tab>(initialTab as Tab);
@@ -340,11 +349,17 @@ function ResetPasswordForm({ email, onBack, onSuccess }: { email: string; onBack
 }
 
 function JoinForm({ onClose }: { onClose: () => void }) {
+  const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [platform, setPlatform] = useState("PS5");
-  const [region, setRegion] = useState("");
+  const [country, setCountry] = useState("Zimbabwe");
+  const [favoriteClub, setFavoriteClub] = useState("");
+  const [phone, setPhone] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
@@ -373,14 +388,36 @@ function JoinForm({ onClose }: { onClose: () => void }) {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!termsAccepted) {
+      setError("You must accept the terms and privacy policy");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, email, password, platform, region }),
+      body: JSON.stringify({
+        fullName,
+        username,
+        email,
+        password,
+        confirmPassword,
+        platform,
+        country,
+        favoriteClub,
+        phone: phone || undefined,
+        dateOfBirth: dateOfBirth || undefined,
+        termsAccepted,
+      }),
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      setError(j.error || "Registration failed");
+      setError(j.error || j.details?.formErrors?.[0] || "Registration failed");
       return;
     }
     const data = await res.json();
@@ -399,17 +436,23 @@ function JoinForm({ onClose }: { onClose: () => void }) {
     : [];
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3.5">
+    <form onSubmit={onSubmit} className="space-y-3.5 max-h-[70vh] overflow-y-auto px-0.5">
       <div>
         <p className="font-mono text-[10px] uppercase tracking-wider text-muted-soft">ZIM FCPRO</p>
         <h2 className="heading-cinematic text-2xl text-ink mt-1">Create your football identity</h2>
       </div>
       {error && <ErrorBox message={error} />}
 
+      <FieldInput
+        label="Full name" value={fullName} onChange={setFullName}
+        hint="Your manager name — will appear on rankings"
+        autoComplete="name" required
+      />
+
       <div>
         <FieldInput
           label="Username" value={username} onChange={setUsername}
-          hint="3-20 chars, letters/numbers/underscores — this is your football identity"
+          hint="3-20 chars, letters/numbers/underscores — your unique football identity"
           minLength={3} maxLength={20} required
           suffix={
             checkingUsername ? (
@@ -437,8 +480,33 @@ function JoinForm({ onClose }: { onClose: () => void }) {
         )}
       </div>
 
-      <FieldInput label="Email" type="email" value={email} onChange={setEmail} autoComplete="email" required />
-      <FieldInput label="Password" type="password" value={password} onChange={setPassword} hint="8+ characters" minLength={8} autoComplete="new-password" required />
+      <FieldInput label="Email address" type="email" value={email} onChange={setEmail} autoComplete="email" required />
+
+      <div className="grid grid-cols-2 gap-3">
+        <FieldInput label="Password" type="password" value={password} onChange={setPassword} hint="8+ characters" minLength={8} autoComplete="new-password" required />
+        <FieldInput label="Confirm password" type="password" value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" required />
+      </div>
+
+      <div>
+        <label className="block text-xs uppercase tracking-wider text-muted-soft mb-1">Country</label>
+        <select value={country} onChange={(e) => setCountry(e.target.value)} className="w-full apple-input px-3 py-2.5 text-ink text-sm cursor-pointer">
+          <option value="Zimbabwe">Zimbabwe</option>
+          <option value="Botswana">Botswana</option>
+          <option value="South Africa">South Africa</option>
+          <option value="Zambia">Zambia</option>
+          <option value="Malawi">Malawi</option>
+          <option value="Mozambique">Mozambique</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-xs uppercase tracking-wider text-muted-soft mb-1">Favorite Zimbabwean Club</label>
+        <select value={favoriteClub} onChange={(e) => setFavoriteClub(e.target.value)} className="w-full apple-input px-3 py-2.5 text-ink text-sm cursor-pointer">
+          <option value="">Select a club (optional)</option>
+          {ZIMBABWEAN_CLUBS.map((c) => (<option key={c} value={c}>{c}</option>))}
+        </select>
+      </div>
 
       <div>
         <label className="block text-xs uppercase tracking-wider text-muted-soft mb-1">Platform</label>
@@ -447,10 +515,35 @@ function JoinForm({ onClose }: { onClose: () => void }) {
         </select>
       </div>
 
-      <FieldInput label="Region (optional)" value={region} onChange={setRegion} hint="e.g. Harare, Bulawayo — for local rankings" />
+      <div className="grid grid-cols-2 gap-3">
+        <FieldInput label="Phone (optional)" type="tel" value={phone} onChange={setPhone} hint="For account recovery" />
+        <div>
+          <label className="block text-xs uppercase tracking-wider text-muted-soft mb-1.5">Date of birth (optional)</label>
+          <input
+            type="date"
+            value={dateOfBirth}
+            onChange={(e) => setDateOfBirth(e.target.value)}
+            className="w-full apple-input px-3 py-2.5 text-ink text-sm"
+            max={new Date().toISOString().split("T")[0]}
+          />
+        </div>
+      </div>
+
+      <label className="flex items-start gap-2.5 cursor-pointer group">
+        <input
+          type="checkbox"
+          checked={termsAccepted}
+          onChange={(e) => setTermsAccepted(e.target.checked)}
+          className="mt-0.5 accent-accent"
+          required
+        />
+        <span className="text-xs text-muted-soft leading-relaxed group-hover:text-ink transition-colors">
+          I accept the <span className="text-accent">Terms of Service</span> and <span className="text-accent">Privacy Policy</span>. I confirm I am at least 13 years old.
+        </span>
+      </label>
 
       <button type="submit" disabled={pending} className="w-full rounded-[14px] cta-primary py-3 font-bold uppercase tracking-wider disabled:opacity-50 disabled:transform-none">
-        {pending ? "Creating account…" : "Create Account"}
+        {pending ? "Creating account…" : "Create Your Account"}
       </button>
     </form>
   );

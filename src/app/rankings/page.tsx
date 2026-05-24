@@ -1,13 +1,18 @@
-import { db } from "@/lib/db";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { RankingsClient } from "@/components/RankingsNew";
+import { RankingsTable } from "@/components/RankingsTable";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Rankings · ZIM FCPRO",
-  description: "Live rankings for Zimbabwe's competitive EA Sports FC season.",
+  description: "Live global rankings for Zimbabwe's competitive EA Sports FC season.",
 };
 
-export default async function RankingsPage() {
-  return <RankingsClient />;
+export default function RankingsPage() {
+  return (
+    <div className="max-w-5xl mx-auto px-4 py-8">
+      <ErrorBoundary scope="rankings-table">
+        <RankingsTable />
+      </ErrorBoundary>
+    </div>
+  );
 }
