@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { DivisionProgressBar } from "@/components/DivisionProgress";
+import { useUser, useAuthModal } from "@/lib/auth-context";
+import { ChallengeModal } from "@/components/match/ChallengeModal";
 
 type ProfileData = {
   user: {
@@ -66,7 +68,11 @@ function getMedalTheme(rank: number) {
 
 export default function PlayerProfileClient({ data }: { data: ProfileData }) {
   const [activeTab, setActiveTab] = useState<TabName>("Overview");
+  const [showChallenge, setShowChallenge] = useState(false);
+  const { user: currentUser, isAuthenticated } = useUser();
+  const { openAuth } = useAuthModal();
   const { user, ranking, stats, club, recentMatches } = data;
+  const isOwnProfile = currentUser?.id === user.id;
   const displayName = user.displayName || user.username;
   const matchesPlayed = stats?.matchesPlayed ?? 0;
   const wins = stats?.wins ?? 0;
@@ -87,6 +93,89 @@ export default function PlayerProfileClient({ data }: { data: ProfileData }) {
           displayName={displayName}
           medal={medal}
           formArr={formArr}
+        />
+
+        {/* Action Buttons */}
+        {!isOwnProfile && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="flex gap-2"
+          >
+            {isAuthenticated ? (
+              <>
+                <button
+                  onClick={() => setShowChallenge(true)}
+                  className="flex-1 h-12 rounded-[14px] font-bold text-sm tracking-[0.12em] uppercase bg-accent text-black flex items-center justify-center gap-2 hover:shadow-[0_0_24px_rgba(0,255,133,0.2)] transition-all active:scale-[0.97]"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
+                  </svg>
+                  Challenge
+                </button>
+                <button
+                  onClick={() => { /* message flow */ }}
+                  className="h-12 w-12 rounded-[14px] border border-border flex items-center justify-center text-muted-soft hover:text-ink hover:border-border-strong transition-all shrink-0"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-5 w-5">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                </button>
+                <Link
+                  href={`/compare?vs=${user.username}`}
+                  className="h-12 w-12 rounded-[14px] border border-border flex items-center justify-center text-muted-soft hover:text-ink hover:border-border-strong transition-all shrink-0"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-5 w-5">
+                    <path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" />
+                  </svg>
+                </Link>
+              </>
+            ) : (
+              <button
+                onClick={() => openAuth("signin")}
+                className="flex-1 h-12 rounded-[14px] font-bold text-sm tracking-[0.12em] uppercase border border-accent/20 text-accent bg-accent/5 flex items-center justify-center gap-2 hover:bg-accent/10 transition-all active:scale-[0.97]"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
+                </svg>
+                Sign in to Challenge
+              </button>
+            )}
+          </motion.div>
+        )}
+
+        {/* Own profile actions */}
+        {isOwnProfile && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="flex gap-2"
+          >
+            <Link
+              href="/dashboard/edit-profile"
+              className="flex-1 h-11 rounded-[14px] font-bold text-sm tracking-[0.12em] uppercase border border-border text-muted-soft flex items-center justify-center gap-2 hover:text-ink hover:border-border-strong transition-all"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-4 w-4">
+                <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+              </svg>
+              Edit Profile
+            </Link>
+            <Link
+              href="/dashboard"
+              className="flex-1 h-11 rounded-[14px] font-bold text-sm tracking-[0.12em] uppercase bg-accent/10 text-accent border border-accent/20 flex items-center justify-center gap-2 hover:bg-accent/15 transition-all"
+            >
+              My Dashboard
+            </Link>
+          </motion.div>
+        )}
+
+        <ChallengeModal
+          open={showChallenge}
+          onClose={() => setShowChallenge(false)}
+          opponentId={user.id}
+          opponentName={displayName}
         />
 
         <SwipeableTabs

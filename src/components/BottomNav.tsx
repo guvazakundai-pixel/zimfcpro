@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuthModal, useUser } from "@/lib/auth-context";
 import { useAuthStore } from "@/store/auth-store";
+import { useRealtime } from "@/lib/socket-provider";
 import { motion, LayoutGroup } from "framer-motion";
 
 const ITEMS = [
@@ -21,6 +22,8 @@ export function BottomNav() {
   const { openAuth } = useAuthModal();
   const { isAuthenticated, loading } = useUser();
   const logout = useAuthStore((s) => s.logout);
+  const { notifications } = useRealtime();
+  const unreadCount = notifications.filter((n: any) => !n.isRead).length;
 
   if (loading) {
     return (
@@ -106,11 +109,16 @@ export function BottomNav() {
               >
                 <span
                   className={
-                    "h-[20px] w-[20px] grid place-items-center transition-colors duration-150 " +
+                    "h-[20px] w-[20px] grid place-items-center transition-colors duration-150 relative " +
                     (pathname.startsWith("/dashboard") ? "text-accent" : "text-muted-soft group-hover:text-ink-soft group-active:text-accent")
                   }
                 >
                   <UserIcon />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 flex items-center justify-center rounded-full bg-negative text-[8px] font-black text-white">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
                 </span>
                 <span
                   className={

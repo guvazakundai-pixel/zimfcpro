@@ -86,7 +86,21 @@ export function TopBar() {
           )}
           {isAuthenticated ? (
             <>
-              <NotificationBell />
+              <Link
+                href="/notifications"
+                className="hidden sm:inline-flex rounded-[10px] border border-border px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-ink-soft hover:bg-bg-highlight hover:text-ink hover:border-border-strong transition-all duration-300 relative"
+              >
+                <NotificationBell />
+              </Link>
+              <Link
+                href="/messages"
+                className="hidden sm:inline-flex rounded-[10px] border border-border px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-ink-soft hover:bg-bg-highlight hover:text-ink hover:border-border-strong transition-all duration-300"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-3.5 w-3.5 mr-1.5">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                Messages
+              </Link>
               <Link
                 href="/dashboard"
                 className="hidden sm:inline-flex rounded-[10px] border border-border px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-ink-soft hover:bg-bg-highlight hover:text-ink hover:border-border-strong transition-all duration-300"
@@ -101,12 +115,26 @@ export function TopBar() {
               </button>
             </>
           ) : (
-            <button
-              onClick={() => openAuth("signin")}
-              className="hidden sm:inline-flex rounded-[10px] border border-border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-soft hover:bg-bg-highlight hover:text-ink transition-all duration-200"
-            >
-              Sign in
-            </button>
+            <>
+              <Link
+                href="/rankings"
+                className="hidden sm:inline-flex rounded-[10px] text-[9px] font-bold uppercase tracking-[0.2em] text-muted-soft hover:text-ink transition-all duration-300"
+              >
+                Rankings
+              </Link>
+              <Link
+                href="/tournaments"
+                className="hidden sm:inline-flex rounded-[10px] text-[9px] font-bold uppercase tracking-[0.2em] text-muted-soft hover:text-ink transition-all duration-300"
+              >
+                Tournaments
+              </Link>
+              <button
+                onClick={() => openAuth("signin")}
+                className="hidden sm:inline-flex rounded-[10px] border border-border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-soft hover:bg-bg-highlight hover:text-ink transition-all duration-200"
+              >
+                Sign in
+              </button>
+            </>
           )}
           <span className="hidden md:inline-flex items-center gap-2 font-mono text-[10px] text-muted-soft">
             S1 · <span className="text-accent bc-live-dot">●</span> <span className="text-shimmer">Live</span>
