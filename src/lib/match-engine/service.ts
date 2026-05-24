@@ -303,10 +303,13 @@ async function applyMatchResults(
       points: { increment: xp.winnerPointsGain },
       winStreak: { increment: 1 },
       formScore: { increment: 10 },
-      formHistory: {
-        set: prisma.$raw`substr(('W' || coalesce(form_history,'')), 1, 10)`,
-      },
     },
+  });
+
+  // Update form history via raw SQL (prisma.$raw not supported by all adapters)
+  await db.execute({
+    sql: `UPDATE player_stats SET form_history = substr(('W' || coalesce(form_history,'')), 1, 10) WHERE user_id = ?`,
+    args: [winnerId],
   });
 
   await prisma.playerStats.upsert({
@@ -332,10 +335,13 @@ async function applyMatchResults(
       points: { increment: Math.round(xp.loserPointsGain) },
       winStreak: { set: 0 },
       formScore: { increment: -5 },
-      formHistory: {
-        set: prisma.$raw`substr(('L' || coalesce(form_history,'')), 1, 10)`,
-      },
     },
+  });
+
+  // Update form history via raw SQL
+  await db.execute({
+    sql: `UPDATE player_stats SET form_history = substr(('L' || coalesce(form_history,'')), 1, 10) WHERE user_id = ?`,
+    args: [loserId],
   });
 
   await prisma.pointsLog.create({
@@ -363,6 +369,7 @@ async function applyMatchResults(
   await Promise.all([
     checkAndAward(winnerId, {
       newSkillRating: xp.winnerNewRating,
+      oldSkillRating: winnerRating,
       opponentSkillRating: loserRating,
       goalsScoredThisMatch: winnerScore,
       goalsConcededThisMatch: loserScore,
@@ -370,6 +377,7 @@ async function applyMatchResults(
     }),
     checkAndAward(loserId, {
       newSkillRating: xp.loserNewRating,
+      oldSkillRating: loserRating,
       opponentSkillRating: winnerRating,
       goalsScoredThisMatch: loserScore,
       goalsConcededThisMatch: winnerScore,
@@ -395,10 +403,11 @@ async function applyDraw(matchId: string, player1Id: string, player2Id: string) 
       draws: { increment: 1 },
       matchesPlayed: { increment: 1 },
       skillRating: elo.newRatingA,
-      formHistory: {
-        set: prisma.$raw`substr(('D' || coalesce(form_history,'')), 1, 10)`,
-      },
     },
+  });
+  await db.execute({
+    sql: `UPDATE player_stats SET form_history = substr(('D' || coalesce(form_history,'')), 1, 10) WHERE user_id = ?`,
+    args: [player1Id],
   });
 
   await prisma.playerStats.update({
@@ -407,10 +416,11 @@ async function applyDraw(matchId: string, player1Id: string, player2Id: string) 
       draws: { increment: 1 },
       matchesPlayed: { increment: 1 },
       skillRating: elo.newRatingB,
-      formHistory: {
-        set: prisma.$raw`substr(('D' || coalesce(form_history,'')), 1, 10)`,
-      },
     },
+  });
+  await db.execute({
+    sql: `UPDATE player_stats SET form_history = substr(('D' || coalesce(form_history,'')), 1, 10) WHERE user_id = ?`,
+    args: [player2Id],
   });
 
   const drawPoints = 5;

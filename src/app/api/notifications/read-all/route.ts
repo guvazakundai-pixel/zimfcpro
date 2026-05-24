@@ -6,7 +6,7 @@ export async function POST() {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
-  await prisma.notification.updateMany({
+  await prisma.notificationV2.updateMany({
     where: { userId: auth.session.userId, isRead: false },
     data: { isRead: true },
   });

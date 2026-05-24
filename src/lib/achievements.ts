@@ -104,6 +104,7 @@ export const ACHIEVEMENTS: Record<string, AchievementDef> = {
 
 export type AwardContext = {
   newSkillRating?: number;
+  oldSkillRating?: number;
   goalsScoredThisMatch?: number;
   goalsConcededThisMatch?: number;
   opponentSkillRating?: number;
@@ -137,9 +138,9 @@ export async function checkAndAward(
   if (ctx.isWin && ctx.goalsConcededThisMatch === 0) candidates.push("CLEAN_SHEET_FIRST");
   if (
     ctx.isWin &&
-    ctx.newSkillRating !== undefined &&
+    ctx.oldSkillRating !== undefined &&
     ctx.opponentSkillRating !== undefined &&
-    ctx.opponentSkillRating - ctx.newSkillRating >= 200
+    ctx.opponentSkillRating - ctx.oldSkillRating >= 200
   ) {
     candidates.push("GIANT_SLAYER");
   }

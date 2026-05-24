@@ -6,7 +6,7 @@ export async function GET() {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
-  const notifications = await prisma.notification.findMany({
+  const notifications = await prisma.notificationV2.findMany({
     where: { userId: auth.session.userId },
     orderBy: { createdAt: "desc" },
     take: 50,
