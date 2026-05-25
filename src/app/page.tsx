@@ -1,36 +1,24 @@
 import { db } from "@/lib/db";
 import { Suspense } from "react";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { HomeClient } from "@/components/HomeClient";
 import { HeroSkeleton } from "@/components/ui/Skeleton";
 
 export const dynamic = "force-dynamic";
 
-function safeNumber(val: unknown, fallback: number = 0): number {
-  if (val === null || val === undefined) return fallback;
-  const n = Number(val);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-async function getSiteStats(): Promise<{
-  totalMatches: number;
-  totalGoals: number;
-  playerCount: number;
-  clubCount: number;
-}> {
+async function getSiteStats() {
   try {
     const res = await db.execute(
       "SELECT COALESCE(SUM(matches_played),0) as total_matches, COALESCE(SUM(goals_scored),0) as total_goals, count(*) as player_count, (SELECT count(*) FROM clubs) as club_count FROM player_stats"
-    ).catch(() => ({ rows: [{ total_matches: 0, total_goals: 0, player_count: 0, club_count: 0 }] }));
-    const row = res.rows[0] ?? { total_matches: 0, total_goals: 0, player_count: 0, club_count: 0 };
+    );
+    const row = res.rows[0] as any;
     return {
-      totalMatches: safeNumber(row.total_matches, 0),
-      totalGoals: safeNumber(row.total_goals, 0),
-      playerCount: safeNumber(row.player_count, 0),
-      clubCount: safeNumber(row.club_count, 0),
+      totalMatches: Number(row?.total_matches ?? 0),
+      totalGoals: Number(row?.total_goals ?? 0),
+      playerCount: Number(row?.player_count ?? 0),
+      clubCount: Number(row?.club_count ?? 0),
     };
-  } catch (err) {
-    console.error("[HomePage] getSiteStats failed:", err);
+  } catch (e) {
+    console.error("[HomePage] getSiteStats failed:", e);
     return { totalMatches: 0, totalGoals: 0, playerCount: 0, clubCount: 0 };
   }
 }
@@ -49,27 +37,17 @@ async function getTopPlayers() {
       args: [],
     });
     return (result.rows as any[]).map((r) => ({
-      id: r.id as string,
-      rank: Number(r.rank_position ?? 0),
-      username: r.username as string,
-      displayName: (r.display_name as string) ?? (r.username as string),
-      avatarUrl: r.avatar_url as string | null,
-      city: (r.city as string) ?? "Harare",
-      points: Number(r.points ?? 0),
-      wins: Number(r.wins ?? 0),
-      losses: Number(r.losses ?? 0),
-      draws: Number(r.draws ?? 0),
-      skillRating: Number(r.skill_rating ?? 1000),
-      winStreak: Number(r.win_streak ?? 0),
-      formHistory: (r.form_history as string) ?? "",
+      id: r.id, rank: Number(r.rank_position ?? 0), username: r.username,
+      displayName: r.display_name ?? r.username, avatarUrl: r.avatar_url,
+      city: r.city ?? "Harare", points: Number(r.points ?? 0),
+      wins: Number(r.wins ?? 0), losses: Number(r.losses ?? 0), draws: Number(r.draws ?? 0),
+      skillRating: Number(r.skill_rating ?? 1000), winStreak: Number(r.win_streak ?? 0),
+      formHistory: r.form_history ?? "",
     }));
-  } catch (e) {
-    console.error("[HomePage] getTopPlayers failed:", e);
-    return [];
-  }
+  } catch (e) { console.error("[HomePage] getTopPlayers failed:", e); return []; }
 }
 
-async function getLiveMatches(): Promise<{ id: string; player1: string; player2: string; score1: number; score2: number; status: string }[]> {
+async function getLiveMatches() {
   try {
     const result = await db.execute({
       sql: `SELECT m.id, p1.username AS player1, p2.username AS player2,
@@ -82,34 +60,28 @@ async function getLiveMatches(): Promise<{ id: string; player1: string; player2:
       args: [],
     });
     return (result.rows as any[]).map((r) => ({
-      id: r.id as string,
-      player1: (r.player1 as string) || "Player 1",
-      player2: (r.player2 as string) || "Player 2",
-      score1: (r.score1 as number) ?? 0,
-      score2: (r.score2 as number) ?? 0,
-      status: (r.status_raw as string) || "ACTIVE",
+      id: r.id, player1: r.player1 || "Player 1", player2: r.player2 || "Player 2",
+      score1: Number(r.score1 ?? 0), score2: Number(r.score2 ?? 0),
+      status: r.status_raw || "ACTIVE",
     }));
-  } catch (e) {
-    console.error("[HomePage] getLiveMatches failed:", e);
-    return [];
-  }
+  } catch (e) { console.error("[HomePage] getLiveMatches failed:", e); return []; }
 }
 
 export default async function HomePage() {
-  const [stats, topPlayers, liveMatches] = await Promise.all([getSiteStats(), getTopPlayers(), getLiveMatches()]);
+  const [stats, topPlayers, liveMatches] = await Promise.all([
+    getSiteStats(), getTopPlayers(), getLiveMatches(),
+  ]);
 
   return (
-    <ErrorBoundary scope="homepage">
-      <Suspense fallback={<HeroSkeleton />}>
-        <HomeClient
-          totalMatches={stats.totalMatches}
-          totalGoals={stats.totalGoals}
-          playerCount={stats.playerCount}
-          clubCount={stats.clubCount}
-          topPlayers={topPlayers}
-          liveMatches={liveMatches}
-        />
-      </Suspense>
-    </ErrorBoundary>
+    <Suspense fallback={<HeroSkeleton />}>
+      <HomeClient
+        totalMatches={stats.totalMatches}
+        totalGoals={stats.totalGoals}
+        playerCount={stats.playerCount}
+        clubCount={stats.clubCount}
+        topPlayers={topPlayers}
+        liveMatches={liveMatches}
+      />
+    </Suspense>
   );
 }
