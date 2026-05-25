@@ -46,3 +46,7 @@ next-env.d.ts
 /prisma/migrations/dev/
 /prisma/prisma/
 .env*.local
+prisma/seed-*.ts
+prisma/simulate-*.ts
+prisma/test-*.ts
+scripts/test-*.ts
