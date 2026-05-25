@@ -77,5 +77,3 @@ export async function GET(req: NextRequest) {
     );
   }
 }
-
-// v2 — raw SQL, deployed 2026-05-25

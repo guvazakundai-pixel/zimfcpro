@@ -153,6 +153,11 @@
   --glow-emerald: rgba(52,211,153,0.03);
 }
 
+/* Ambient blobs — toned down in light mode */
+[data-theme="light"] .ambient-gradients > .absolute {
+  opacity: 0.5 !important;
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-bg-raised: var(--bg-raised);
