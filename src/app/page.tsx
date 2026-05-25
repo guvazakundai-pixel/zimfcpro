@@ -4,7 +4,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { HomeClient } from "@/components/HomeClient";
 import { HeroSkeleton } from "@/components/ui/Skeleton";
 
-export const revalidate = 30;
+export const dynamic = "force-dynamic";
 
 function safeNumber(val: unknown, fallback: number = 0): number {
   if (val === null || val === undefined) return fallback;
