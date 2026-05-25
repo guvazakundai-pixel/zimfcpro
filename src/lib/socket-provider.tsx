@@ -16,22 +16,33 @@ type RankingUpdate = {
   data: any;
 };
 
-type SocketContextValue = {
+type LiveMatch = {
+  id: string;
+  player1: string;
+  player2: string;
+  score1: number;
+  score2: number;
+  status: string;
+};
+
+type RealtimeContextValue = {
   socket: Socket | null;
   connected: boolean;
   notifications: RealtimeNotification[];
   latestRankingUpdate: RankingUpdate | null;
+  liveMatches: LiveMatch[];
   clearNotification: (idx: number) => void;
   clearNotifications: () => void;
   joinRoom: (room: string) => void;
   leaveRoom: (room: string) => void;
 };
 
-const SocketContext = createContext<SocketContextValue>({
+const RealtimeContext = createContext<RealtimeContextValue>({
   socket: null,
   connected: false,
   notifications: [],
   latestRankingUpdate: null,
+  liveMatches: [],
   clearNotification: () => {},
   clearNotifications: () => {},
   joinRoom: () => {},
@@ -44,11 +55,63 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
   const [notifications, setNotifications] = useState<RealtimeNotification[]>([]);
   const [latestRankingUpdate, setLatestRankingUpdate] = useState<RankingUpdate | null>(null);
+  const [liveMatches, setLiveMatches] = useState<LiveMatch[]>([]);
 
+  // SSE connection — primary transport (works on Vercel)
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+    let reconnectTimeout: ReturnType<typeof setTimeout>;
+
+    function connect() {
+      eventSource?.close();
+      eventSource = new EventSource("/api/sse");
+
+      eventSource.addEventListener("connected", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          setConnected(data.status === "connected");
+        } catch {}
+      });
+
+      eventSource.addEventListener("notification", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          setNotifications((prev) =>
+            [{ type: data.type, title: data.title, message: data.message, link: data.link }, ...prev].slice(0, 50)
+          );
+        } catch {}
+      });
+
+      eventSource.addEventListener("live-matches", (event) => {
+        try {
+          const data = JSON.parse(event.data) as LiveMatch[];
+          setLiveMatches(data);
+        } catch {}
+      });
+
+      eventSource.onerror = () => {
+        setConnected(false);
+        eventSource?.close();
+        reconnectTimeout = setTimeout(connect, 5000);
+      };
+    }
+
+    connect();
+
+    return () => {
+      eventSource?.close();
+      clearTimeout(reconnectTimeout);
+    };
+  }, []);
+
+  // Socket.IO — secondary transport (when a separate server is available)
   useEffect(() => {
     if (!session?.userId) return;
 
-    const s = io(process.env.NEXT_PUBLIC_SOCKET_URL || "", {
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
+    if (!socketUrl) return; // Skip Socket.IO if no URL configured
+
+    const s = io(socketUrl, {
       transports: ["websocket", "polling"],
     });
 
@@ -68,7 +131,15 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
 
     s.on("match-updated", (data: any) => {
-      setNotifications((prev) => [{ type: "MATCH", title: "Match Update", message: "A match you're following has been updated.", link: `/matches/${data.matchId}` }, ...prev].slice(0, 50));
+      setNotifications((prev) => [
+        {
+          type: "MATCH",
+          title: "Match Update",
+          message: "A match you're following has been updated.",
+          link: `/matches/${data.matchId}`,
+        },
+        ...prev,
+      ].slice(0, 50));
     });
 
     setSocket(s);
@@ -76,7 +147,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     return () => {
       s.disconnect();
       setSocket(null);
-      setConnected(false);
     };
   }, [session?.userId]);
 
@@ -86,21 +156,28 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
   const clearNotifications = useCallback(() => setNotifications([]), []);
 
-  const joinRoom = useCallback((room: string) => {
-    socket?.emit("join-league", room);
-  }, [socket]);
+  const joinRoom = useCallback(
+    (room: string) => {
+      socket?.emit("join-league", room);
+    },
+    [socket],
+  );
 
-  const leaveRoom = useCallback((room: string) => {
-    socket?.emit("leave-league", room);
-  }, [socket]);
+  const leaveRoom = useCallback(
+    (room: string) => {
+      socket?.emit("leave-league", room);
+    },
+    [socket],
+  );
 
   return (
-    <SocketContext.Provider
+    <RealtimeContext.Provider
       value={{
         socket,
         connected,
         notifications,
         latestRankingUpdate,
+        liveMatches,
         clearNotification,
         clearNotifications,
         joinRoom,
@@ -108,10 +185,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </SocketContext.Provider>
+    </RealtimeContext.Provider>
   );
 }
 
 export function useRealtime() {
-  return useContext(SocketContext);
+  return useContext(RealtimeContext);
 }
