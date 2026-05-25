@@ -4,6 +4,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { TopBar } from "@/components/TopBar";
 import { AuthProvider, AuthUrlHandler } from "@/lib/auth-context";
 import { AuthHydrator } from "@/components/AuthHydrator";
+import { ThemeHydrator } from "@/components/ThemeHydrator";
 import { AuthModal } from "@/components/AuthModal";
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -66,6 +67,11 @@ export default function RootLayout({
     >
       <head>
         <meta name="format-detection" content="telephone=no" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem("ss_theme");if(t==="light"||(!t&&matchMedia("(prefers-color-scheme:light)").matches))document.documentElement.setAttribute("data-theme","light")}catch(e){}`,
+          }}
+        />
       </head>
       <body className="min-h-dynamic bg-bg text-ink antialiased overflow-x-hidden" suppressHydrationWarning>
         <QueryProvider>
@@ -75,6 +81,7 @@ export default function RootLayout({
             <Suspense fallback={null}>
               <AuthUrlHandler />
               <AuthHydrator />
+              <ThemeHydrator />
             </Suspense>
             <AmbientBackground />
             <div className="relative z-10 min-h-screen flex flex-col pl-[var(--safe-area-left)] pr-[var(--safe-area-right)]">

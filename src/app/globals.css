@@ -112,6 +112,47 @@
   --safe-area-right: env(safe-area-inset-right, 0px);
 }
 
+/* ═══════════════════════════════════════════════════════════
+   LIGHT THEME — clean white sports aesthetic (Apple/ESPN)
+   ═══════════════════════════════════════════════════════════ */
+[data-theme="light"] {
+  --bg: #FAFAFA;
+  --bg-raised: #FFFFFF;
+  --bg-elevated: #F5F5F5;
+  --bg-highlight: #EEEEEE;
+  --bg-deep: #F0F0F0;
+
+  --surface: rgba(255,255,255,0.85);
+  --surface-solid: #FFFFFF;
+  --surface-2: rgba(245,245,245,0.90);
+  --surface-3: rgba(240,240,240,0.85);
+  --surface-ultra: rgba(255,255,255,0.92);
+
+  --ink: #111111;
+  --ink-soft: #222222;
+  --muted: #555555;
+  --muted-soft: #777777;
+  --muted-faint: #999999;
+
+  --border: rgba(0,0,0,0.06);
+  --border-strong: rgba(0,0,0,0.10);
+  --border-faint: rgba(0,0,0,0.03);
+
+  --accent: #00b85c;
+  --accent-ink: #00994a;
+  --accent-soft: rgba(0,184,92,0.06);
+  --accent-muted: rgba(0,184,92,0.12);
+
+  --glass-bg: rgba(255,255,255,0.70);
+  --glass-border: rgba(0,0,0,0.06);
+
+  --glow-pink: rgba(236,72,153,0.04);
+  --glow-cyan: rgba(34,211,238,0.03);
+  --glow-blue: rgba(59,130,246,0.04);
+  --glow-purple: rgba(168,85,247,0.04);
+  --glow-emerald: rgba(52,211,153,0.03);
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-bg-raised: var(--bg-raised);

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useUser, useAuthModal } from "@/lib/auth-context";
 import { useAuthStore } from "@/store/auth-store";
+import { useThemeStore } from "@/lib/theme-store";
 import { NotificationBell } from "@/components/match/NotificationBell";
 
 export function TopBar() {
@@ -75,6 +76,15 @@ export function TopBar() {
           </div>
         </Link>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => useThemeStore.getState().toggle()}
+            className="inline-flex items-center justify-center h-8 w-8 rounded-[10px] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-200 text-sm"
+            style={{ background: "rgba(255,255,255,0.03)" }}
+            aria-label="Toggle theme"
+          >
+            <span className="dark:hidden">🌙</span>
+            <span className="light:hidden">☀️</span>
+          </button>
           {isAdmin && (
             <Link
               href="/admin"
