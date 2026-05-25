@@ -4,6 +4,12 @@ import { createClient } from "@libsql/client";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
+// Prisma validates datasource URL from schema even when using libsql adapter.
+// Ensure DATABASE_URL is set before any PrismaClient is created.
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = "file:./prisma/dev.db";
+}
+
 function createPrismaClient() {
   const useTurso = process.env.TURSO_DATABASE_URL && process.env.USE_TURSO === "true";
 

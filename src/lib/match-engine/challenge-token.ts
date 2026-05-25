@@ -29,9 +29,10 @@ export async function createChallengeToken(data: {
   const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
   await db.execute({
-    sql: `INSERT INTO challenge_tokens (token, challenger_id, opponent_id, match_type, platform, region, wager_amount, expires_at, used)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+    sql: `INSERT INTO challenge_tokens (id, token, challenger_id, opponent_id, match_type, platform, region, wager_amount, expires_at, used)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
     args: [
+      crypto.randomUUID(),
       token,
       data.challengerId,
       data.opponentId ?? null,

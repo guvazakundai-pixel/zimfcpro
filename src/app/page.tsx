@@ -1,5 +1,4 @@
 import { db } from "@/lib/db";
-import { prisma } from "@/lib/prisma";
 import { Suspense } from "react";
 import { ErrorBoundary, ScopedErrorBoundary } from "@/components/ErrorBoundary";
 import { HomeClient } from "@/components/HomeClient";
@@ -38,47 +37,34 @@ async function getSiteStats(): Promise<{
 
 async function getTopPlayers() {
   try {
-    const top = await prisma.playerRanking.findMany({
-      take: 10,
-      orderBy: { rankPosition: "asc" },
-      include: {
-        user: {
-          select: {
-            id: true,
-            username: true,
-            displayName: true,
-            avatarUrl: true,
-            city: true,
-            playerStats: {
-              select: {
-                wins: true,
-                losses: true,
-                draws: true,
-                skillRating: true,
-                winStreak: true,
-                formHistory: true,
-              },
-            },
-          },
-        },
-      },
+    const result = await db.execute({
+      sql: `SELECT u.id, u.username, u.display_name, u.avatar_url, u.city,
+                   ps.wins, ps.losses, ps.draws, ps.skill_rating, ps.win_streak, ps.form_history,
+                   pr.rank_position, pr.points
+            FROM player_rankings pr
+            JOIN users u ON u.id = pr.user_id
+            LEFT JOIN player_stats ps ON ps.user_id = u.id
+            ORDER BY pr.rank_position ASC
+            LIMIT 10`,
+      args: [],
     });
-    return top.map((r) => ({
-      id: r.user.id,
-      rank: r.rankPosition,
-      username: r.user.username,
-      displayName: r.user.displayName ?? r.user.username,
-      avatarUrl: r.user.avatarUrl,
-      city: r.user.city ?? "Harare",
-      points: r.points,
-      wins: r.user.playerStats?.wins ?? 0,
-      losses: r.user.playerStats?.losses ?? 0,
-      draws: r.user.playerStats?.draws ?? 0,
-      skillRating: r.user.playerStats?.skillRating ?? 1000,
-      winStreak: r.user.playerStats?.winStreak ?? 0,
-      formHistory: r.user.playerStats?.formHistory ?? "",
+    return (result.rows as any[]).map((r) => ({
+      id: r.id as string,
+      rank: Number(r.rank_position ?? 0),
+      username: r.username as string,
+      displayName: (r.display_name as string) ?? (r.username as string),
+      avatarUrl: r.avatar_url as string | null,
+      city: (r.city as string) ?? "Harare",
+      points: Number(r.points ?? 0),
+      wins: Number(r.wins ?? 0),
+      losses: Number(r.losses ?? 0),
+      draws: Number(r.draws ?? 0),
+      skillRating: Number(r.skill_rating ?? 1000),
+      winStreak: Number(r.win_streak ?? 0),
+      formHistory: (r.form_history as string) ?? "",
     }));
-  } catch {
+  } catch (e) {
+    console.error("[HomePage] getTopPlayers failed:", e);
     return [];
   }
 }
@@ -87,12 +73,12 @@ async function getLiveMatches(): Promise<{ id: string; player1: string; player2:
   try {
     const result = await db.execute({
       sql: `SELECT m.id, p1.username AS player1, p2.username AS player2,
-                   m.score1, m.score2, m.status
-            FROM matches m
+                   m.score1, m.score2, m.status_raw
+            FROM match_reports m
             LEFT JOIN users p1 ON p1.id = m.player1_id
             LEFT JOIN users p2 ON p2.id = m.player2_id
-            WHERE m.status = 'LIVE'
-            ORDER BY m.updated_at DESC LIMIT 10`,
+            WHERE m.status_raw = 'ACTIVE'
+            ORDER BY m.created_at DESC LIMIT 10`,
       args: [],
     });
     return (result.rows as any[]).map((r) => ({
@@ -101,9 +87,10 @@ async function getLiveMatches(): Promise<{ id: string; player1: string; player2:
       player2: (r.player2 as string) || "Player 2",
       score1: (r.score1 as number) ?? 0,
       score2: (r.score2 as number) ?? 0,
-      status: (r.status as string) || "LIVE",
+      status: (r.status_raw as string) || "ACTIVE",
     }));
-  } catch {
+  } catch (e) {
+    console.error("[HomePage] getLiveMatches failed:", e);
     return [];
   }
 }

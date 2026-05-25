@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -8,59 +8,75 @@ export async function GET(req: NextRequest) {
   const includeFake = searchParams.get("includeFake") === "true";
 
   try {
-    const where = includeFake ? {} : { user: { isFake: false } };
+    let whereClause = "";
+    const args: any[] = [];
+    if (!includeFake) {
+      whereClause = "WHERE (u.is_fake IS NULL OR u.is_fake = 0)";
+    }
 
-    const [rankings, total] = await Promise.all([
-      prisma.playerRanking.findMany({
-        where,
-        take: limit,
-        skip: offset,
-        orderBy: { rankPosition: "asc" },
-        include: {
-          user: {
-            select: {
-              id: true,
-              username: true,
-              displayName: true,
-              fullName: true,
-              avatarUrl: true,
-              country: true,
-              favoriteClub: true,
-              isFake: true,
-              isVerified: true,
-              fantasyTeam: {
-                select: { teamName: true, teamValue: true, budget: true, transfersUsed: true },
-              },
-              playerStats: {
-                select: {
-                  matchesPlayed: true,
-                  wins: true,
-                  losses: true,
-                  draws: true,
-                  goalsScored: true,
-                  goalsConceded: true,
-                  skillRating: true,
-                  points: true,
-                  formScore: true,
-                  winStreak: true,
-                  mvpCount: true,
-                  formHistory: true,
-                },
-              },
-              playerAchievements: {
-                where: { rarity: "LEGENDARY" },
-                select: { icon: true, title: true, rarity: true },
-                take: 3,
-              },
-            },
-          },
-        },
-      }),
-      prisma.playerRanking.count({ where }),
-    ]);
+    const countResult = await db.execute({
+      sql: `SELECT count(*) as c FROM player_rankings pr JOIN users u ON u.id = pr.user_id ${whereClause}`,
+      args,
+    });
+    const total = Number((countResult.rows[0] as any)?.c ?? 0);
+
+    const dataResult = await db.execute({
+      sql: `SELECT u.id, u.username, u.display_name, u.avatar_url, u.country,
+                   u.is_fake, u.is_verified,
+                   ps.matches_played, ps.wins, ps.losses, ps.draws,
+                   ps.goals_scored, ps.goals_conceded, ps.skill_rating, ps.points,
+                   ps.form_score, ps.win_streak, ps.mvp_count, ps.form_history,
+                   pr.rank_position, pr.points as ranking_points, pr.final_score,
+                   ft.team_name, ft.team_value, ft.budget, ft.transfers_used
+            FROM player_rankings pr
+            JOIN users u ON u.id = pr.user_id
+            LEFT JOIN player_stats ps ON ps.user_id = u.id
+            LEFT JOIN fantasy_teams ft ON ft.user_id = u.id
+            ${whereClause}
+            ORDER BY pr.rank_position ASC
+            LIMIT ? OFFSET ?`,
+      args: [...args, limit, offset],
+    });
+
+    const rankings = (dataResult.rows as any[]).map((r) => ({
+      id: r.id,
+      username: r.username,
+      displayName: r.display_name ?? r.username,
+      fullName: r.display_name ?? r.username,
+      avatarUrl: r.avatar_url,
+      country: r.country,
+      isFake: !!r.is_fake,
+      isVerified: !!r.is_verified,
+      rank: r.rank_position,
+      points: r.ranking_points,
+      finalScore: r.final_score,
+      fantasyTeam: {
+        teamName: r.team_name ?? `${r.username} FC`,
+        teamValue: r.team_value ?? 0,
+        budget: r.budget ?? 100,
+        transfersUsed: r.transfers_used ?? 0,
+      },
+      playerStats: {
+        matchesPlayed: r.matches_played ?? 0,
+        wins: r.wins ?? 0,
+        losses: r.losses ?? 0,
+        draws: r.draws ?? 0,
+        goalsScored: r.goals_scored ?? 0,
+        goalsConceded: r.goals_conceded ?? 0,
+        skillRating: r.skill_rating ?? 1000,
+        points: r.points ?? 0,
+        formScore: r.form_score ?? 0,
+        winStreak: r.win_streak ?? 0,
+        mvpCount: r.mvp_count ?? 0,
+        formHistory: r.form_history ?? "",
+      },
+      // Simple placeholder — achievements require separate lookup
+      playerAchievements: [],
+    }));
 
     return NextResponse.json({ success: true, data: rankings, total });
-  } catch {
+  } catch (e) {
+    console.error("[rankings/top]", e);
     return NextResponse.json(
       { success: false, error: "Failed to fetch rankings", data: [], total: 0 },
       { status: 500 },

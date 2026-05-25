@@ -119,41 +119,53 @@ export async function POST(req: Request) {
   const dob = dateOfBirth ? new Date(dateOfBirth).toISOString() : null;
   const displayName = sanitizedFullName;
 
-  await db.batch(
-    [
-      {
-        sql: `INSERT INTO users (
-          id, username, email, password_hash, display_name, full_name,
-          platform, country, favorite_club, phone, date_of_birth,
-          terms_accepted, terms_accepted_at, role, referral_code, referred_by,
-          referral_xp, referral_count, verification_token, verification_token_expiry,
-          created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 'PLAYER', ?, ?, 0, 0, ?, ?, ?, ?)`,
-        args: [
-          id, username, email, passwordHash, displayName, sanitizedFullName,
-          platform, country, sanitizedFavoriteClub, sanitizedPhone, dob,
-          now, code, referrerId, verificationToken, verificationTokenExpiry, now, now,
-        ],
-      },
-      {
-        sql: "INSERT INTO player_stats (id, user_id, matches_played, wins, losses, draws, goals_scored, goals_conceded, skill_rating, points, form_score, win_streak, mvp_count, form_history, updated_at) VALUES (?, ?, 0, 0, 0, 0, 0, 0, 1000, 0, 0, 0, 0, '', ?)",
-        args: [statsId, id, now],
-      },
-      {
-        sql: "INSERT INTO player_rankings (id, user_id, rank_position, prev_position, rank_change, points, final_score, updated_at) VALUES (?, ?, ?, NULL, 0, 0, 0, ?)",
-        args: [rankingId, id, startingRank, now],
-      },
-      {
-        sql: "INSERT INTO fantasy_teams (id, user_id, team_name, manager_name, budget, team_value, transfers_used, created_at, updated_at) VALUES (?, ?, ?, ?, 100.0, 0, 0, ?, ?)",
-        args: [teamId, id, `${username} FC`, displayName, now, now],
-      },
-      {
-        sql: "INSERT INTO player_achievements (id, user_id, title, description, icon, category, rarity, unlocked_at, created_at) VALUES (?, ?, 'Welcome to zimfcpro', 'Joined the competitive ecosystem.', '🎮', 'GENERAL', 'COMMON', ?, ?)",
-        args: [achievementId, id, now, now],
-      },
+  // Insert user (critical)
+  await db.execute({
+    sql: `INSERT INTO users (
+      id, username, email, password_hash, display_name, full_name,
+      platform, country, favorite_club, phone, date_of_birth,
+      terms_accepted, terms_accepted_at, role, referral_code, referred_by,
+      referral_xp, referral_count, verification_token, verification_token_expiry,
+      created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 'PLAYER', ?, ?, 0, 0, ?, ?, ?, ?)`,
+    args: [
+      id, username, email, passwordHash, displayName, sanitizedFullName,
+      platform, country, sanitizedFavoriteClub, sanitizedPhone, dob,
+      now, code, referrerId, verificationToken, verificationTokenExpiry, now, now,
     ],
-    "write",
-  );
+  });
+
+  // Insert player stats (critical for rankings)
+  await db.execute({
+    sql: "INSERT INTO player_stats (id, user_id, matches_played, wins, losses, draws, goals_scored, goals_conceded, skill_rating, points, form_score, win_streak, mvp_count, form_history, updated_at) VALUES (?, ?, 0, 0, 0, 0, 0, 0, 1000, 0, 0, 0, 0, '', ?)",
+    args: [statsId, id, now],
+  });
+
+  // Insert ranking (critical)
+  await db.execute({
+    sql: "INSERT INTO player_rankings (id, user_id, rank_position, prev_position, rank_change, points, final_score, updated_at) VALUES (?, ?, ?, NULL, 0, 0, 0, ?)",
+    args: [rankingId, id, startingRank, now],
+  });
+
+  // Insert fantasy team (non-critical — don't fail registration if this errors)
+  try {
+    await db.execute({
+      sql: "INSERT INTO fantasy_teams (id, user_id, team_name, manager_name, budget, team_value, transfers_used, formation, created_at, updated_at) VALUES (?, ?, ?, ?, 100.0, 0, 0, '4-3-3', ?, ?)",
+      args: [teamId, id, `${username} FC`, displayName, now, now],
+    });
+  } catch (e) {
+    console.error("[Register] Fantasy team creation failed (non-critical):", e);
+  }
+
+  // Insert welcome achievement (non-critical)
+  try {
+    await db.execute({
+      sql: "INSERT INTO player_achievements (id, user_id, title, description, icon, category, rarity, unlocked_at, created_at) VALUES (?, ?, 'Welcome to zimfcpro', 'Joined the competitive ecosystem.', '🎮', 'GENERAL', 'COMMON', ?, ?)",
+      args: [achievementId, id, now, now],
+    });
+  } catch (e) {
+    console.error("[Register] Achievement creation failed (non-critical):", e);
+  }
 
   if (referrerId) {
     try {
