@@ -1,71 +1,79 @@
 import { db } from "@/lib/db";
+import { HomeClient } from "@/components/HomeClient";
 
 export const dynamic = "force-dynamic";
 
+async function getSiteStats() {
+  try {
+    const r = await db.execute(
+      "SELECT COALESCE(SUM(matches_played),0) as total_matches, COALESCE(SUM(goals_scored),0) as total_goals, count(*) as player_count, (SELECT count(*) FROM clubs) as club_count FROM player_stats"
+    );
+    const row = r.rows[0] as any;
+    return {
+      totalMatches: Number(row?.total_matches ?? 0),
+      totalGoals: Number(row?.total_goals ?? 0),
+      playerCount: Number(row?.player_count ?? 0),
+      clubCount: Number(row?.club_count ?? 0),
+    };
+  } catch { return { totalMatches: 0, totalGoals: 0, playerCount: 0, clubCount: 0 }; }
+}
+
+async function getTopPlayers() {
+  try {
+    const r = await db.execute({
+      sql: `SELECT u.id, u.username, u.display_name, u.avatar_url, u.city,
+                   ps.wins, ps.losses, ps.draws, ps.skill_rating, ps.win_streak, ps.form_history,
+                   pr.rank_position, pr.points
+            FROM player_rankings pr
+            JOIN users u ON u.id = pr.user_id
+            LEFT JOIN player_stats ps ON ps.user_id = u.id
+            ORDER BY pr.rank_position ASC LIMIT 10`,
+      args: [],
+    });
+    return (r.rows as any[]).map((row) => ({
+      id: row.id, rank: Number(row.rank_position ?? 0), username: row.username,
+      displayName: row.display_name ?? row.username, avatarUrl: row.avatar_url,
+      city: row.city ?? "Harare", points: Number(row.points ?? 0),
+      wins: Number(row.wins ?? 0), losses: Number(row.losses ?? 0), draws: Number(row.draws ?? 0),
+      skillRating: Number(row.skill_rating ?? 1000), winStreak: Number(row.win_streak ?? 0),
+      formHistory: row.form_history ?? "",
+    }));
+  } catch { return []; }
+}
+
+async function getLiveMatches() {
+  try {
+    const r = await db.execute({
+      sql: `SELECT m.id, p1.username AS player1, p2.username AS player2,
+                   m.score1, m.score2, m.status_raw
+            FROM match_reports m
+            LEFT JOIN users p1 ON p1.id = m.player1_id
+            LEFT JOIN users p2 ON p2.id = m.player2_id
+            WHERE m.status_raw = 'ACTIVE'
+            ORDER BY m.created_at DESC LIMIT 10`,
+      args: [],
+    });
+    return (r.rows as any[]).map((row) => ({
+      id: row.id, player1: row.player1 || "Player 1", player2: row.player2 || "Player 2",
+      score1: Number(row.score1 ?? 0), score2: Number(row.score2 ?? 0),
+      status: row.status_raw || "ACTIVE",
+    }));
+  } catch { return []; }
+}
+
 export default async function HomePage() {
-  let playerCount = 0;
-  let clubCount = 0;
-  let matchCount = 0;
-
-  try {
-    const r = await db.execute("SELECT count(*) as c FROM users");
-    playerCount = Number((r.rows[0] as any)?.c ?? 0);
-  } catch {}
-
-  try {
-    const r = await db.execute("SELECT count(*) as c FROM clubs");
-    clubCount = Number((r.rows[0] as any)?.c ?? 0);
-  } catch {}
-
-  try {
-    const r = await db.execute("SELECT count(*) as c FROM match_reports");
-    matchCount = Number((r.rows[0] as any)?.c ?? 0);
-  } catch {}
+  const [stats, topPlayers, liveMatches] = await Promise.all([
+    getSiteStats(), getTopPlayers(), getLiveMatches(),
+  ]);
 
   return (
-    <main style={{ padding: "40px 24px", maxWidth: 800, margin: "0 auto", fontFamily: "system-ui, sans-serif", background: "#fafafa", minHeight: "100vh" }}>
-      <h1 style={{ fontSize: "2.5rem", fontWeight: 800, color: "#111", marginBottom: 8 }}>
-        ZIM FCPRO
-      </h1>
-      <p style={{ fontSize: "1rem", color: "#555", marginBottom: 32 }}>
-        Zimbabwe&apos;s #1 EA Sports FC Competitive Platform
-      </p>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 32 }}>
-        <StatBox label="Players" value={playerCount} />
-        <StatBox label="Clubs" value={clubCount} />
-        <StatBox label="Matches" value={matchCount} />
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
-        <a href="/rankings" style={linkStyle}>View Rankings →</a>
-        <a href="/leagues" style={linkStyle}>View Leagues →</a>
-        <a href="/matches" style={linkStyle}>View Matches →</a>
-        <a href="/clubs" style={linkStyle}>View Clubs →</a>
-      </div>
-    </main>
+    <HomeClient
+      totalMatches={stats.totalMatches}
+      totalGoals={stats.totalGoals}
+      playerCount={stats.playerCount}
+      clubCount={stats.clubCount}
+      topPlayers={topPlayers}
+      liveMatches={liveMatches}
+    />
   );
 }
-
-function StatBox({ label, value }: { label: string; value: number }) {
-  return (
-    <div style={{ background: "#fff", borderRadius: 16, padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.08)", textAlign: "center" }}>
-      <div style={{ fontSize: "2rem", fontWeight: 800, color: "#00b85c" }}>{value}</div>
-      <div style={{ fontSize: "0.8rem", color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4 }}>{label}</div>
-    </div>
-  );
-}
-
-const linkStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: "18px 24px",
-  background: "#fff",
-  borderRadius: 14,
-  border: "1px solid #e5e5e5",
-  textDecoration: "none",
-  color: "#111",
-  fontWeight: 600,
-  fontSize: "0.95rem",
-};
