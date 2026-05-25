@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { Suspense } from "react";
-import { ErrorBoundary, ScopedErrorBoundary } from "@/components/ErrorBoundary";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { HomeClient } from "@/components/HomeClient";
 import { HeroSkeleton } from "@/components/ui/Skeleton";
 
