@@ -13,6 +13,8 @@ type AdminStats = {
   totalTournaments: number;
   activeLeagues: number;
   totalAchievements: number;
+  activeMatches: number;
+  newUsersToday: number;
 };
 
 type Activity = {
@@ -74,10 +76,12 @@ export function AdminDashboardClient({ stats, recentActivity }: Props) {
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <StatCard label="Users" value={stats.totalUsers} tone="accent" href="/admin/users" />
+            <StatCard label="New Today" value={stats.newUsersToday} tone="emerald" href="/admin/users" />
             <StatCard label="Clubs" value={stats.totalClubs} tone="purple" href="/admin/members" />
+            <StatCard label="Live Matches" value={stats.activeMatches} tone="cyan" href="/admin/command-center" />
             <StatCard label="Tournaments" value={stats.totalTournaments} tone="gold" href="/admin/control-tower" />
             <StatCard label="Live Leagues" value={stats.activeLeagues} tone="emerald" href="/admin/command-center" />
-            <StatCard label="Matches" value={stats.totalMatches} tone="cyan" href="/admin/command-center" />
+            <StatCard label="Total Matches" value={stats.totalMatches} tone="cyan" href="/admin/command-center" />
             <StatCard label="Disputes" value={stats.pendingReports} tone="danger" href="/admin/disputes" />
             <StatCard label="Achievements" value={stats.totalAchievements} tone="accent" href="/admin/settings" />
             <StatCard label="Rankings" value="—" tone="muted" href="/admin/rankings" />
