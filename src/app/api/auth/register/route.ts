@@ -20,7 +20,7 @@ const ZIMBABWEAN_CLUBS = [
 const PLATFORMS = ["PS5", "XBOX", "PC"] as const;
 
 const RegisterSchema = z.object({
-  fullName: z.string().min(2).max(100).optional().default(""),
+  fullName: z.string().max(100).optional().default(""),
   username: z
     .string()
     .min(3)
