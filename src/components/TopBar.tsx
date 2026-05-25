@@ -52,11 +52,11 @@ export function TopBar() {
 
   return (
     <header
-      className="sticky top-0 z-40 border-b border-b-white/[0.03]"
+      className="sticky top-0 z-40 border-b border-[var(--border-faint)]"
       style={{
-        background: "radial-gradient(800px 60px at 50% 0%, rgba(0,255,133,0.03) 0%, transparent 60%), rgba(10,10,12,0.82)",
-        backdropFilter: "blur(28px) saturate(1.6)",
-        WebkitBackdropFilter: "blur(28px) saturate(1.6)",
+        background: "radial-gradient(800px 60px at 50% 0%, var(--accent-soft) 0%, transparent 60%), var(--surface-ultra)",
+        backdropFilter: "blur(var(--glass-blur)) saturate(1.6)",
+        WebkitBackdropFilter: "blur(var(--glass-blur)) saturate(1.6)",
       }}
     >
       <div className="mx-auto max-w-6xl px-4 sm:px-6 h-13 flex items-center justify-between gap-4 w-full min-w-0">
@@ -78,8 +78,8 @@ export function TopBar() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => useThemeStore.getState().toggle()}
-            className="inline-flex items-center justify-center h-8 w-8 rounded-[10px] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-200 text-sm"
-            style={{ background: "rgba(255,255,255,0.03)" }}
+            className="inline-flex items-center justify-center h-8 w-8 rounded-[10px] border border-[var(--border)] hover:border-[var(--border-strong)] transition-all duration-200 text-sm"
+            style={{ background: "var(--accent-soft)" }}
             aria-label="Toggle theme"
           >
             <span className="dark:hidden">🌙</span>

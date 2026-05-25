@@ -29,7 +29,7 @@ export function BottomNav() {
     return (
       <nav aria-label="Primary" className="fixed bottom-0 inset-x-0 z-50 pb-[env(safe-area-inset-bottom)]">
         <div className="mx-auto max-w-lg px-2 pb-2 pt-1">
-          <div className="flex items-center justify-around rounded-[24px] px-1.5 py-3" style={{ background: "rgba(8,8,10,0.94)" }}>
+          <div className="flex items-center justify-around rounded-[24px] px-1.5 py-3" style={{ background: "var(--surface-ultra)" }}>
             <div className="h-[20px] w-[20px] rounded-full bg-white/5 animate-pulse" />
             <div className="h-[20px] w-[20px] rounded-full bg-white/5 animate-pulse" />
             <div className="h-[20px] w-[20px] rounded-full bg-white/5 animate-pulse" />
@@ -52,11 +52,11 @@ export function BottomNav() {
           <div
             className="flex items-center justify-around rounded-[24px] px-1.5 py-1"
             style={{
-              background: "rgba(8,8,10,0.94)",
+              background: "var(--surface-ultra)",
               backdropFilter: "blur(40px) saturate(1.8)",
               WebkitBackdropFilter: "blur(40px) saturate(1.8)",
-              border: "1px solid rgba(255,255,255,0.04)",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.4), 0 0 0 0.5px rgba(255,255,255,0.02) inset, 0 0 48px rgba(0,255,133,0.03)",
+              border: "1px solid var(--border)",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.12), 0 0 0 0.5px var(--border-faint) inset",
             }}
           >
           {ITEMS.map(({ href, label, icon: Icon }) => {
