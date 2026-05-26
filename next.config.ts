@@ -10,6 +10,36 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+
+  // ── Image optimisation ───────────────────────────────────
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "**.vercel.app" },
+      { protocol: "https", hostname: "**.turso.io" },
+      { protocol: "https", hostname: "**.supabase.co" },
+      { protocol: "https", hostname: "avatars.githubusercontent.com" },
+      { protocol: "https", hostname: "lh3.googleusercontent.com" },
+      { protocol: "https", hostname: "res.cloudinary.com" },
+    ],
+  },
+
+  // ── API body parser ──────────────────────────────────────
+  api: {
+    bodyParser: { sizeLimit: "5mb" },
+  },
+
+  // ── Security headers ─────────────────────────────────────
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "X-DNS-Prefetch-Control", value: "on" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

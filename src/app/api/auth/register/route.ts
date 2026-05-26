@@ -53,6 +53,7 @@ function generateReferralCode(username: string): string {
 }
 
 export async function POST(req: Request) {
+  try {
   const rlKey = rateLimitKey(req, "register");
   const rl = rateLimit(rlKey, { windowMs: 60 * 60 * 1000, max: 5 });
   if (!rl.allowed) {
@@ -237,4 +238,11 @@ export async function POST(req: Request) {
       teamName: `${username} FC`,
     },
   });
+  } catch (err: any) {
+    console.error("[Register] Unexpected error:", err);
+    return NextResponse.json(
+      { error: err?.message || "Registration failed. Please try again." },
+      { status: 500 },
+    );
+  }
 }

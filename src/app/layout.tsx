@@ -13,12 +13,14 @@ import { HeroSkeleton } from "@/components/ui/Skeleton";
 import { QueryProvider } from "@/lib/query-provider";
 import { SocketProvider } from "@/lib/socket-provider";
 import { NotificationToast } from "@/components/RealtimeComponents";
+import { Toaster } from "sonner";
 import "./globals.css";
 
-const SITE_URL = "https://zimfcpro.vercel.app";
+const SITE_URL = "https://zimfcpro.co.zw";
 const SITE_TITLE = "ZIM FCPRO — Zimbabwe Pro EA FC Rankings";
 const SITE_DESC =
   "Official rankings, clubs and tournaments for Zimbabwe's competitive EA Sports FC scene.";
+const OG_IMAGE = `${SITE_URL}/og-default.png`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -32,18 +34,25 @@ export const metadata: Metadata = {
     "FIFA Zimbabwe",
     "EA Sports FC league",
     "ZIM FCPRO",
+    "Zimbabwe gaming",
+    "esports ZW",
   ],
+  alternates: {
+    canonical: SITE_URL,
+  },
   openGraph: {
     type: "website",
     siteName: "ZIM FCPRO",
     url: SITE_URL,
     title: SITE_TITLE,
     description: SITE_DESC,
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: "ZIM FCPRO" }],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: SITE_TITLE,
     description: SITE_DESC,
+    images: [OG_IMAGE],
   },
 };
 
@@ -105,6 +114,7 @@ export default function RootLayout({
               <AuthModal />
             </ErrorBoundary>
             <NotificationToast />
+            <Toaster position="bottom-center" richColors />
           </ErrorBoundary>
         </AuthProvider>
         </SocketProvider>
