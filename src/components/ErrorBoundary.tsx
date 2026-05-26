@@ -46,7 +46,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           url: window.location.href,
           timestamp: new Date().toISOString(),
         };
-        navigator.sendBeacon?.("/api/admin/error-log", JSON.stringify(payload));
+        const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+        navigator.sendBeacon?.("/api/admin/error-log", blob);
       } catch {}
     }
   }
