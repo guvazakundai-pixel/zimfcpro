@@ -1,8 +1,5 @@
 import { db } from "@/lib/db";
-import { Suspense } from "react";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { HomeClient } from "@/components/HomeClient";
-import { HeroSkeleton } from "@/components/ui/Skeleton";
 
 export const dynamic = "force-dynamic";
 
@@ -99,17 +96,13 @@ export default async function HomePage() {
   const [stats, topPlayers, liveMatches] = await Promise.all([getSiteStats(), getTopPlayers(), getLiveMatches()]);
 
   return (
-    <ErrorBoundary scope="homepage">
-      <Suspense fallback={<HeroSkeleton />}>
-        <HomeClient
-          totalMatches={stats.totalMatches}
-          totalGoals={stats.totalGoals}
-          playerCount={stats.playerCount}
-          clubCount={stats.clubCount}
-          topPlayers={topPlayers}
-          liveMatches={liveMatches}
-        />
-      </Suspense>
-    </ErrorBoundary>
+    <HomeClient
+      totalMatches={stats.totalMatches}
+      totalGoals={stats.totalGoals}
+      playerCount={stats.playerCount}
+      clubCount={stats.clubCount}
+      topPlayers={topPlayers}
+      liveMatches={liveMatches}
+    />
   );
 }
