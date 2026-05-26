@@ -8,8 +8,6 @@ import { StaggerContainer, NumberTicker } from "@/components/ui/PageTransition";
 import { HeroSkeleton } from "@/components/ui/Skeleton";
 import { PlayerDetailModal } from "@/components/PlayerDetailModal";
 import { SpotlightCard } from "@/components/SpotlightCard";
-import { PLAYERS } from "@/lib/players";
-import type { Division, FormResult } from "@/lib/players";
 import { LiveTournamentsCarousel } from "@/components/LiveTournamentsCarousel";
 import { ActiveLeaguesSection } from "@/components/ActiveLeaguesSection";
 import { TrendingClubs } from "@/components/TrendingClubs";
@@ -20,6 +18,7 @@ import { LiveRankingsWidget } from "@/components/LiveRankingsWidget";
 import { LiveMatchTicker } from "@/components/RealtimeComponents";
 import { ScopedErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuthStore } from "@/store/auth-store";
+import type { Division, FormResult, Player } from "@/lib/players";
 
 function safeNumber(val: number | undefined | null, fallback: number = 0): number {
   if (val === null || val === undefined || !Number.isFinite(val)) return fallback;
@@ -126,10 +125,30 @@ export function HomeClient({
   const playerCount = livePlayerCount;
   const clubCount = safeNumber(clubCountRaw, 0);
 
-  const modalPlayer = useMemo(
-    () => (modalPlayerId ? PLAYERS.find((p) => p.id === modalPlayerId) ?? null : null),
-    [modalPlayerId],
-  );
+  const modalPlayer = useMemo(() => {
+    if (!modalPlayerId) return null;
+    const found = topPlayers.find((p) => p.id === modalPlayerId);
+    if (!found) return null;
+    return {
+      id: found.id,
+      rank: found.rank,
+      name: found.displayName || found.username,
+      gamertag: found.username,
+      city: found.city,
+      division: "Pro" as Division,
+      wins: found.wins,
+      losses: found.losses,
+      draws: found.draws,
+      goalsFor: 0,
+      goalsAgainst: 0,
+      points: found.points,
+      prizeMoney: 0,
+      form: parseFormHistory2(found.formHistory),
+      winStreak: found.winStreak,
+      streak: found.winStreak,
+      hardware: { controller: "N/A", monitor: "N/A", console: "N/A" },
+    } as Player;
+  }, [modalPlayerId, topPlayers]);
 
   if (!mounted) {
     return <HeroSkeleton />;
@@ -178,7 +197,7 @@ export function HomeClient({
       </ScopedErrorBoundary>
       <JoinCTA />
       {modalPlayer && (
-        <PlayerDetailModal player={modalPlayer} onClose={() => setModalPlayerId(null)} allPlayers={PLAYERS} />
+        <PlayerDetailModal player={modalPlayer} onClose={() => setModalPlayerId(null)} allPlayers={[]} />
       )}
     </div>
   );
@@ -752,8 +771,10 @@ function SpotlightSection({ onSelect, topPlayers }: { onSelect: (id: string) => 
         hardware: { controller: "N/A", monitor: "N/A", console: "N/A" },
       }));
     }
-    return PLAYERS.filter((p) => p.rank <= 5);
+    return [];
   }, [hasRealData, topPlayers]);
+
+  if (spotlightItems.length === 0) return null;
 
   return (
     <section className="relative py-16 sm:py-24">

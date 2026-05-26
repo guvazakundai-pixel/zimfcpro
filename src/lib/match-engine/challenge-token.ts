@@ -79,7 +79,7 @@ export function shareUrls(token: string): {
   app: string;
   shareUrl: string;
 }[] {
-  const base = "https://zimfcpro.vercel.app/match/claim";
+  const base = `${process.env.NEXT_PUBLIC_URL || "https://zimfcpro.co.zw"}/match/claim`;
   const url = `${base}/${token}`;
   const text = `⚡ ${token.slice(0, 6).toUpperCase()} is challenging you on ZIM FCPRO! Accept the battle: ${url}`;
 
