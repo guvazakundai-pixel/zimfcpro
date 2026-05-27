@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { AuthModalCTA } from "@/components/AuthModalCTA";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { StaggerContainer, NumberTicker } from "@/components/ui/PageTransition";
+import { NumberTicker } from "@/components/ui/PageTransition";
 import { HeroSkeleton } from "@/components/ui/Skeleton";
 import { PlayerDetailModal } from "@/components/PlayerDetailModal";
 import { SpotlightCard } from "@/components/SpotlightCard";
@@ -30,12 +30,6 @@ function parseFormHistory2(history: string): FormResult[] {
   return history.split("").filter((c): c is FormResult => c === "W" || c === "L" || c === "D");
 }
 
-function useMounted(): boolean {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
-  return mounted;
-}
-
 function useLivePlayerCount(initialCount: number): number {
   const [count, setCount] = useState(initialCount);
   const welcomeData = useAuthStore((s) => s.welcomeData);
@@ -43,9 +37,7 @@ function useLivePlayerCount(initialCount: number): number {
   const setStorePlayerCount = useAuthStore((s) => s.setPlayerCount);
 
   useEffect(() => {
-    if (storePlayerCount > 0) {
-      setCount(storePlayerCount);
-    }
+    if (storePlayerCount > 0) setCount(storePlayerCount);
   }, [storePlayerCount]);
 
   useEffect(() => {
@@ -57,7 +49,6 @@ function useLivePlayerCount(initialCount: number): number {
 
   useEffect(() => {
     let mounted = true;
-
     async function poll() {
       try {
         const res = await fetch("/api/stats/player-count");
@@ -67,18 +58,11 @@ function useLivePlayerCount(initialCount: number): number {
           setCount(data.playerCount);
           setStorePlayerCount(data.playerCount);
         }
-      } catch {
-        // silent — serverless cold start may fail
-      }
+      } catch {}
     }
-
     poll();
-
     const interval = setInterval(poll, 15_000);
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
+    return () => { mounted = false; clearInterval(interval); };
   }, [setStorePlayerCount]);
 
   return count;
@@ -115,9 +99,7 @@ export function HomeClient({
   topPlayers?: TopPlayer[];
   liveMatches?: { id: string; player1: string; player2: string; score1: number; score2: number; status: string }[];
 }) {
-  const mounted = useMounted();
   const [modalPlayerId, setModalPlayerId] = useState<string | null>(null);
-
   const livePlayerCount = useLivePlayerCount(playerCountRaw);
 
   const totalMatches = safeNumber(totalMatchesRaw, 0);
@@ -130,29 +112,16 @@ export function HomeClient({
     const found = topPlayers.find((p) => p.id === modalPlayerId);
     if (!found) return null;
     return {
-      id: found.id,
-      rank: found.rank,
-      name: found.displayName || found.username,
-      gamertag: found.username,
-      city: found.city,
-      division: "Pro" as Division,
-      wins: found.wins,
-      losses: found.losses,
-      draws: found.draws,
-      goalsFor: 0,
-      goalsAgainst: 0,
-      points: found.points,
-      prizeMoney: 0,
-      form: parseFormHistory2(found.formHistory),
-      winStreak: found.winStreak,
-      streak: found.winStreak,
-      hardware: { controller: "N/A", monitor: "N/A", console: "N/A" },
+      id: found.id, rank: found.rank, name: found.displayName || found.username,
+      gamertag: found.username, city: found.city, division: "Pro" as Division,
+      wins: found.wins, losses: found.losses, draws: found.draws,
+      goalsFor: 0, goalsAgainst: 0, points: found.points, prizeMoney: 0,
+      form: parseFormHistory2(found.formHistory), winStreak: found.winStreak,
+      streak: found.winStreak, hardware: { controller: "N/A", monitor: "N/A", console: "N/A" },
     } as Player;
   }, [modalPlayerId, topPlayers]);
 
-  if (!mounted) {
-    return <HeroSkeleton />;
-  }
+  const hasLiveStats = totalMatches > 0 && totalGoals > 0 && playerCount > 0 && clubCount > 0;
 
   return (
     <div className="broadcast-theme min-h-screen">
@@ -167,24 +136,19 @@ export function HomeClient({
         }}
       />
       <Particles count={20} color="rgba(0,255,133,0.12)" />
-      <HeroSection
-        totalMatches={totalMatches}
-        totalGoals={totalGoals}
-        playerCount={playerCount}
-        clubCount={clubCount}
-      />
+      <HeroSection hasLiveStats={hasLiveStats} totalMatches={totalMatches} totalGoals={totalGoals} playerCount={playerCount} clubCount={clubCount} />
       <BroadcastTicker playerCount={playerCount} />
       {liveMatches.length > 0 && <LiveMatchTicker matches={liveMatches} />}
-      <CreateCTASection />
+      <CTAPanel />
       <HowItWorksSection />
+      <ScopedErrorBoundary scope="rankings" label="rankings">
+        <LiveRankingsWidget />
+      </ScopedErrorBoundary>
       <ScopedErrorBoundary scope="tournaments" label="tournaments">
         <LiveTournamentsCarousel />
       </ScopedErrorBoundary>
       <ScopedErrorBoundary scope="leagues" label="leagues">
         <ActiveLeaguesSection />
-      </ScopedErrorBoundary>
-      <ScopedErrorBoundary scope="rankings" label="rankings">
-        <LiveRankingsWidget />
       </ScopedErrorBoundary>
       <ScopedErrorBoundary scope="clubs" label="clubs">
         <TrendingClubs />
@@ -220,31 +184,15 @@ function FloatingOrbs() {
       <motion.div
         aria-hidden
         className="pointer-events-none absolute w-[350px] h-[350px] rounded-full opacity-[0.06]"
-        style={{
-          background: "radial-gradient(circle, rgba(0,230,118,0.4), transparent 70%)",
-          filter: "blur(60px)",
-          left: "10%",
-          top: "20%",
-        }}
-        animate={{
-          x: mouse.x * 0.02,
-          y: mouse.y * 0.02,
-        }}
+        style={{ background: "radial-gradient(circle, rgba(0,230,118,0.4), transparent 70%)", filter: "blur(60px)", left: "10%", top: "20%" }}
+        animate={{ x: mouse.x * 0.02, y: mouse.y * 0.02 }}
         transition={{ type: "spring", stiffness: 50, damping: 30 }}
       />
       <motion.div
         aria-hidden
         className="pointer-events-none absolute w-[280px] h-[280px] rounded-full opacity-[0.04]"
-        style={{
-          background: "radial-gradient(circle, rgba(34,211,238,0.35), transparent 70%)",
-          filter: "blur(60px)",
-          right: "15%",
-          bottom: "30%",
-        }}
-        animate={{
-          x: mouse.x * -0.015,
-          y: mouse.y * -0.015,
-        }}
+        style={{ background: "radial-gradient(circle, rgba(34,211,238,0.35), transparent 70%)", filter: "blur(60px)", right: "15%", bottom: "30%" }}
+        animate={{ x: mouse.x * -0.015, y: mouse.y * -0.015 }}
         transition={{ type: "spring", stiffness: 50, damping: 30 }}
       />
     </>
@@ -252,24 +200,25 @@ function FloatingOrbs() {
 }
 
 function HeroSection({
+  hasLiveStats,
   totalMatches,
   totalGoals,
   playerCount,
   clubCount,
 }: {
+  hasLiveStats: boolean;
   totalMatches: number;
   totalGoals: number;
   playerCount: number;
   clubCount: number;
 }) {
-  const hasStats = totalMatches > 0 || totalGoals > 0 || playerCount > 0 || clubCount > 0;
   const sectionRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end start"] });
   const heroY = useTransform(scrollYProgress, [0, 1], [0, 80]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0.4]);
 
   return (
-    <section ref={sectionRef} className="relative overflow-hidden min-h-[90vh] flex items-center">
+    <section ref={sectionRef} className="relative overflow-hidden min-h-[100dvh] flex items-center">
       <FloatingOrbs />
       <motion.div
         aria-hidden
@@ -333,7 +282,7 @@ function HeroSection({
               <span className="text-gradient-hero">ZIMBABWE.</span>
             </span>
             <span className="cinematic-heading block text-[1rem] sm:text-xl md:text-2xl lg:text-3xl text-ink/50 mt-4 sm:mt-5 font-bold tracking-wider">
-              ZW's Competitive FC Ecosystem
+              ZW&apos;s Competitive FC Ecosystem
             </span>
           </motion.h1>
 
@@ -347,97 +296,6 @@ function HeroSection({
             is a battle for local supremacy. Earn your spot among the nation&apos;s top tier, climb the
             ZW rankings, and prove you belong at the summit. The throne only holds one.
           </motion.p>
-
-          <motion.p
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.75, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-4 text-[13px] sm:text-sm text-muted-soft"
-          >
-            Are you ready to dominate the ZW scene, or will you be left behind?
-          </motion.p>
-
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.95 }}
-            className="mt-8 sm:mt-10"
-          >
-            <div className="frosted-card p-5 sm:p-7 rounded-[24px] sm:rounded-[28px] relative overflow-hidden card-glow-line">
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0"
-                style={{ background: "radial-gradient(400px 200px at 30% 50%, rgba(0,230,118,0.10), transparent 70%)" }}
-              />
-              <div className="relative z-10">
-                <p className="cinematic-heading text-base sm:text-lg md:text-xl text-ink tracking-tight">
-                  Claim Your Rank. Rule Zimbabwe.
-                </p>
-                <p className="mt-1.5 text-[12px] sm:text-[13px] text-muted-soft">
-                  Create your account and begin your climb up the ZW leaderboard.
-                </p>
-
-                <div className="mt-4 mb-4">
-                  <div className="flex items-center justify-between text-[8px] font-bold uppercase tracking-[0.15em] text-muted-faint mb-1.5">
-                    <span>Rookie</span>
-                    <span className="text-accent">Elite</span>
-                  </div>
-                  <div className="xp-bar">
-                    <div className="xp-bar-fill" style={{ width: '0%' }} />
-                  </div>
-                  <div className="flex items-center justify-between text-[7px] text-muted-faint mt-1">
-                    <span className="text-muted-faint">Div VII</span>
-                    <span className="text-accent/60">Div I</span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-2.5">
-                  <AuthModalCTA
-                    tab="join"
-                    className="btn-primary inline-flex items-center justify-center h-11 sm:h-13 px-7 sm:px-9 font-bold text-sm sm:text-base tracking-wide"
-                  >
-                    Join the Ranks
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="ml-2 h-4 w-4 sm:h-5 sm:w-5">
-                      <path d="M5 12h14" /><path d="M13 5l7 7-7 7" />
-                    </svg>
-                  </AuthModalCTA>
-                  <Link
-                    href="/rankings"
-                    className="btn-ghost inline-flex items-center justify-center h-11 sm:h-13 px-7 sm:px-9 font-bold text-sm sm:text-base tracking-wide text-ink"
-                  >
-                    View Rankings
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-
-          {hasStats && (
-            <>
-              <div className="mt-8 sm:mt-12 relative">
-                <div
-                  aria-hidden
-                  className="absolute top-0 left-1/2 -translate-x-1/2 h-px w-3/4"
-                  style={{
-                    background: "linear-gradient(90deg, transparent, rgba(0,255,133,0.15), rgba(34,211,238,0.1), transparent)",
-                  }}
-                />
-                <div className="pt-5 sm:pt-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-faint">ZW Season 1</span>
-                    <span className="text-border-strong text-[9px]">/</span>
-                    <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-accent">Live Stats</span>
-                  </div>
-                  <StaggerContainer className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
-                    <StatCard label="Matches" value={totalMatches} icon="match" delay={0} />
-                    <StatCard label="Goals" value={totalGoals} icon="goal" delay={0.06} />
-                    <StatCard label="Players" value={playerCount} icon="player" delay={0.12} />
-                    <StatCard label="Clubs" value={clubCount} icon="club" delay={0.18} />
-                  </StaggerContainer>
-                </div>
-              </div>
-            </>
-          )}
 
           <motion.div
             initial={{ opacity: 0 }}
@@ -464,20 +322,141 @@ function HeroSection({
   );
 }
 
+function CTAPanel() {
+  return (
+    <section className="relative py-10 sm:py-14">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{ background: "radial-gradient(800px 300px at 50% 50%, rgba(0,230,118,0.03), transparent 60%)" }}
+      />
+      <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="frosted-card p-5 sm:p-7 rounded-[24px] sm:rounded-[28px] relative overflow-hidden card-glow-line"
+        >
+          <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(400px 200px at 30% 50%, rgba(0,230,118,0.10), transparent 70%)" }} />
+          <div className="relative z-10">
+            <p className="cinematic-heading text-base sm:text-lg md:text-xl text-ink tracking-tight">
+              Claim Your Rank. Rule Zimbabwe.
+            </p>
+            <p className="mt-1.5 text-[12px] sm:text-[13px] text-muted-soft">
+              Create your account and begin your climb up the ZW leaderboard.
+            </p>
+            <div className="mt-4 mb-4">
+              <div className="flex items-center justify-between text-[8px] font-bold uppercase tracking-[0.15em] text-muted-faint mb-1.5">
+                <span>Rookie</span>
+                <span className="text-accent">Elite</span>
+              </div>
+              <div className="xp-bar">
+                <div className="xp-bar-fill" style={{ width: "0%" }} />
+              </div>
+              <div className="flex items-center justify-between text-[7px] text-muted-faint mt-1">
+                <span className="text-muted-faint">Div VII</span>
+                <span className="text-accent/60">Div I</span>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2.5">
+              <AuthModalCTA
+                tab="join"
+                className="btn-primary inline-flex items-center justify-center h-11 sm:h-13 px-7 sm:px-9 font-bold text-sm sm:text-base tracking-wide"
+              >
+                Join the Ladder
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="ml-2 h-4 w-4 sm:h-5 sm:w-5">
+                  <path d="M5 12h14" /><path d="M13 5l7 7-7 7" />
+                </svg>
+              </AuthModalCTA>
+              <Link
+                href="/rankings"
+                className="btn-ghost inline-flex items-center justify-center h-11 sm:h-13 px-7 sm:px-9 font-bold text-sm sm:text-base tracking-wide text-ink"
+              >
+                Explore Rankings
+              </Link>
+              <Link
+                href="/leagues"
+                className="btn-ghost inline-flex items-center justify-center h-11 sm:h-13 px-7 sm:px-9 font-bold text-sm sm:text-base tracking-wide text-ink border-cyan/30 hover:border-cyan/50"
+              >
+                View Leagues
+              </Link>
+            </div>
+          </div>
+        </motion.div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 mt-4 sm:gap-5">
+          <motion.div
+            initial={{ opacity: 0, x: -24 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            className="group"
+          >
+            <Link
+              href="/tournaments/create"
+              className="block frosted-card p-6 sm:p-8 rounded-[24px] card-interactive relative overflow-hidden h-full"
+            >
+              <div aria-hidden className="pointer-events-none absolute -top-20 -right-20 w-40 h-40 rounded-full opacity-[0.06] group-hover:opacity-[0.12] transition-opacity duration-500" style={{ background: "radial-gradient(circle, rgba(0,230,118,0.8), transparent 70%)" }} />
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="flex items-center justify-center h-10 w-10 rounded-xl bg-accent/10 border border-accent/20 text-accent">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
+                  </span>
+                  <div>
+                    <h3 className="cinematic-heading text-lg sm:text-xl text-ink">Create a Tournament</h3>
+                    <p className="text-[12px] text-muted-soft mt-0.5">Set the rules, invite players</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-[11px] text-accent font-bold tracking-wide">
+                  <span>Get Started</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1"><path d="M5 12h14" /><path d="M13 5l7 7-7 7" /></svg>
+                </div>
+              </div>
+            </Link>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, x: 24 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            className="group"
+          >
+            <Link
+              href="/leagues/create"
+              className="block glass-v2 p-6 sm:p-8 rounded-[24px] card-interactive relative overflow-hidden h-full"
+            >
+              <div aria-hidden className="pointer-events-none absolute -bottom-20 -left-20 w-40 h-40 rounded-full opacity-[0.06] group-hover:opacity-[0.12] transition-opacity duration-500" style={{ background: "radial-gradient(circle, rgba(168,85,247,0.8), transparent 70%)" }} />
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="flex items-center justify-center h-10 w-10 rounded-xl bg-purple/10 border border-purple/20 text-purple">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="M12 3l8 3v6c0 4.5-3.5 8.5-8 9-4.5-.5-8-4.5-8-9V6l8-3z" /></svg>
+                  </span>
+                  <div>
+                    <h3 className="cinematic-heading text-lg sm:text-xl text-ink">Create a League</h3>
+                    <p className="text-[12px] text-muted-soft mt-0.5">Build a season, crown a champion</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-[11px] text-purple font-bold tracking-wide">
+                  <span>Get Started</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1"><path d="M5 12h14" /><path d="M13 5l7 7-7 7" /></svg>
+                </div>
+              </div>
+            </Link>
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function BroadcastTicker({ playerCount }: { playerCount: number }) {
   const items = [
     { type: "live", text: "ZW SEASON 1 — LIVE NOW" },
     { type: "divider" },
-    { type: "match", text: "KingKai 3-2 Ghost_ZW" },
-    { type: "match", text: "Prodigy 1-1 ShadowX" },
-    { type: "match", text: "Neon_Striker 4-0 Vex_FC" },
-    { type: "match", text: "BlazeZW 2-1 Fury_Elite" },
-    { type: "divider" },
-    { type: "stat", text: "1,284 MATCHES PLAYED" },
-    { type: "stat", text: "4,871 GOALS SCORED" },
     { type: "stat", text: `${playerCount.toLocaleString()} ACTIVE PLAYERS` },
     { type: "divider" },
-    { type: "live", text: "NEXT TOURNAMENT: HARARE OPEN — 3 DAYS" },
+    { type: "live", text: "JOIN THE ZW LADDER TODAY" },
   ];
 
   return (
@@ -491,15 +470,8 @@ function BroadcastTicker({ playerCount }: { playerCount: number }) {
                 {item.text}
               </span>
             )}
-            {item.type === "match" && (
-              <span className="text-muted-soft">{item.text}</span>
-            )}
-            {item.type === "stat" && (
-              <span className="text-muted-faint">{item.text}</span>
-            )}
-            {item.type === "divider" && (
-              <span className="text-border-strong mx-2" aria-hidden>///</span>
-            )}
+            {item.type === "stat" && <span className="text-muted-faint">{item.text}</span>}
+            {item.type === "divider" && <span className="text-border-strong mx-2" aria-hidden>///</span>}
           </span>
         ))}
       </div>
@@ -507,196 +479,18 @@ function BroadcastTicker({ playerCount }: { playerCount: number }) {
   );
 }
 
-function StatCard({ label, value, icon, delay = 0 }: { label: string; value: number; icon: string; delay?: number }) {
-  const iconEl = (() => {
-    switch (icon) {
-      case "match":
-        return (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-            <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M9 21V9" />
-          </svg>
-        );
-      case "goal":
-        return (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-            <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
-          </svg>
-        );
-      case "player":
-        return (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-          </svg>
-        );
-      case "club":
-        return (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-            <path d="M12 3l8 3v6c0 4.5-3.5 8.5-8 9-4.5-.5-8-4.5-8-9V6l8-3z" />
-          </svg>
-        );
-      default:
-        return null;
-    }
-  })();
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 22, scale: 0.96 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.5, delay, type: "spring", stiffness: 260, damping: 24, mass: 0.8 }}
-      className="card-premium p-5 rounded-[22px] glow-ambient-accent"
-    >
-      <div className="flex items-start justify-between mb-3">
-        <span className="text-accent/50">{iconEl}</span>
-      </div>
-      <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-muted-soft">{label}</p>
-      <p className="mt-1.5 text-3xl sm:text-4xl tabular-nums leading-none text-gradient-accent">
-        <NumberTicker value={value} />
-      </p>
-    </motion.div>
-  );
-}
-
-function CreateCTASection() {
-  return (
-    <section className="relative py-10 sm:py-14">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(800px 300px at 50% 50%, rgba(0,230,118,0.03), transparent 60%)" }}
-      />
-      <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-          <motion.div
-            initial={{ opacity: 0, x: -24 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
-            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-            className="group"
-          >
-            <Link
-              href="/tournaments/create"
-              className="block frosted-card p-6 sm:p-8 rounded-[24px] card-interactive relative overflow-hidden h-full"
-            >
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -top-20 -right-20 w-40 h-40 rounded-full opacity-[0.06] group-hover:opacity-[0.12] transition-opacity duration-500"
-                style={{ background: "radial-gradient(circle, rgba(0,230,118,0.8), transparent 70%)" }}
-              />
-              <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-4">
-                  <span className="flex items-center justify-center h-10 w-10 rounded-xl bg-accent/10 border border-accent/20 text-accent">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-                      <path d="M12 5v14" /><path d="M5 12h14" />
-                    </svg>
-                  </span>
-                  <div>
-                    <h3 className="cinematic-heading text-lg sm:text-xl text-ink">Create a Tournament</h3>
-                    <p className="text-[12px] text-muted-soft mt-0.5">Set the rules, invite players</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 text-[11px] text-accent font-bold tracking-wide">
-                  <span>Get Started</span>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1">
-                    <path d="M5 12h14" /><path d="M13 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </div>
-            </Link>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, x: 24 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
-            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-            className="group"
-          >
-            <Link
-              href="/leagues/create"
-              className="block glass-v2 p-6 sm:p-8 rounded-[24px] card-interactive relative overflow-hidden h-full"
-            >
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -bottom-20 -left-20 w-40 h-40 rounded-full opacity-[0.06] group-hover:opacity-[0.12] transition-opacity duration-500"
-                style={{ background: "radial-gradient(circle, rgba(168,85,247,0.8), transparent 70%)" }}
-              />
-              <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-4">
-                  <span className="flex items-center justify-center h-10 w-10 rounded-xl bg-purple/10 border border-purple/20 text-purple">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-                      <path d="M12 3l8 3v6c0 4.5-3.5 8.5-8 9-4.5-.5-8-4.5-8-9V6l8-3z" />
-                    </svg>
-                  </span>
-                  <div>
-                    <h3 className="cinematic-heading text-lg sm:text-xl text-ink">Create a League</h3>
-                    <p className="text-[12px] text-muted-soft mt-0.5">Build a season, crown a champion</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 text-[11px] text-purple font-bold tracking-wide">
-                  <span>Get Started</span>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1">
-                    <path d="M5 12h14" /><path d="M13 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </div>
-            </Link>
-          </motion.div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function HowItWorksSection() {
   const steps = [
-    {
-      number: "01",
-      title: "Join",
-      description: "Create your account and set up your profile. Connect your gamertag, pick your city, and enter the arena.",
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
-          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-        </svg>
-      ),
-    },
-    {
-      number: "02",
-      title: "Play",
-      description: "Compete in tournaments and league matches against Zimbabwe's finest EA FC players. Every match earns you ranking points.",
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
-          <rect x="2" y="6" width="20" height="12" rx="2" /><path d="M8 12h8" /><path d="M12 8v8" />
-        </svg>
-      ),
-    },
-    {
-      number: "03",
-      title: "Climb",
-      description: "Rise through the divisions from Rookie to Elite. Earn your spot in the top 5 and prove you belong on the FC Pro stage.",
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
-          <path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" />
-        </svg>
-      ),
-    },
+    { number: "01", title: "Join", description: "Create your account and set up your profile. Connect your gamertag, pick your city, and enter the arena.", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg> },
+    { number: "02", title: "Play", description: "Compete in tournaments and league matches against Zimbabwe's finest EA FC players. Every match earns you ranking points.", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6"><rect x="2" y="6" width="20" height="12" rx="2" /><path d="M8 12h8" /><path d="M12 8v8" /></svg> },
+    { number: "03", title: "Climb", description: "Rise through the divisions from Rookie to Elite. Earn your spot in the top 5 and prove you belong on the FC Pro stage.", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6"><path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" /></svg> },
   ];
 
   return (
     <section className="relative py-12 sm:py-18 overflow-hidden">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(800px 400px at 30% 50%, rgba(0,230,118,0.04), transparent 60%), radial-gradient(600px 300px at 70% 50%, rgba(168,85,247,0.03), transparent 60%)" }}
-      />
+      <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(800px 400px at 30% 50%, rgba(0,230,118,0.04), transparent 60%), radial-gradient(600px 300px at 70% 50%, rgba(168,85,247,0.03), transparent 60%)" }} />
       <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-60px" }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="text-center mb-10 sm:mb-14"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-60px" }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }} className="text-center mb-10 sm:mb-14">
           <h2 className="cinematic-heading text-3xl sm:text-5xl md:text-6xl text-ink leading-[0.88]">
             How It <span className="text-gradient-accent">Works</span>
           </h2>
@@ -707,36 +501,16 @@ function HowItWorksSection() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
           {steps.map((step, i) => (
-            <motion.div
-              key={step.number}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-40px" }}
-              transition={{ duration: 0.5, delay: i * 0.12, ease: [0.22, 1, 0.36, 1] }}
-              className="relative group"
-            >
+            <motion.div key={step.number} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-40px" }} transition={{ duration: 0.5, delay: i * 0.12, ease: [0.22, 1, 0.36, 1] }} className="relative group">
               <div className="frosted-card p-6 sm:p-8 rounded-[24px] card-interactive h-full">
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute -top-4 -right-4 text-[6rem] sm:text-[8rem] font-black leading-none select-none text-ink/5"
-                  style={{ fontFamily: "var(--font-barlow), system-ui, sans-serif", letterSpacing: "-0.06em" }}
-                >
-                  {step.number}
-                </span>
+                <span aria-hidden className="pointer-events-none absolute -top-4 -right-4 text-[6rem] sm:text-[8rem] font-black leading-none select-none text-ink/5" style={{ fontFamily: "var(--font-barlow), system-ui, sans-serif", letterSpacing: "-0.06em" }}>{step.number}</span>
                 <div className="relative z-10">
-                  <span className="flex items-center justify-center h-12 w-12 rounded-2xl bg-accent/10 border border-accent/20 text-accent mb-5 group-hover:bg-accent/15 transition-colors duration-300">
-                    {step.icon}
-                  </span>
+                  <span className="flex items-center justify-center h-12 w-12 rounded-2xl bg-accent/10 border border-accent/20 text-accent mb-5 group-hover:bg-accent/15 transition-colors duration-300">{step.icon}</span>
                   <h3 className="cinematic-heading text-xl sm:text-2xl text-ink mb-3">{step.title}</h3>
                   <p className="text-[13px] sm:text-[14px] text-muted-soft leading-relaxed">{step.description}</p>
                 </div>
               </div>
-              {i < steps.length - 1 && (
-                <div
-                  aria-hidden
-                  className="hidden sm:block absolute top-1/3 -right-3 w-6 h-px bg-gradient-to-r from-accent/30 to-transparent"
-                />
-              )}
+              {i < steps.length - 1 && <div aria-hidden className="hidden sm:block absolute top-1/3 -right-3 w-6 h-px bg-gradient-to-r from-accent/30 to-transparent" />}
             </motion.div>
           ))}
         </div>
@@ -746,67 +520,23 @@ function HowItWorksSection() {
 }
 
 function SpotlightSection({ onSelect, topPlayers }: { onSelect: (id: string) => void; topPlayers: TopPlayer[] }) {
-  const hasRealData = topPlayers.length > 0;
-
   const spotlightItems = useMemo(() => {
-    if (hasRealData) {
-      return topPlayers.slice(0, 5).map((p) => ({
-        id: p.id,
-        rank: p.rank,
-        prev: p.rank,
-        name: p.displayName || p.username,
-        gamertag: p.username,
-        city: p.city || "Harare",
-        division: "Pro" as Division,
-        points: p.points,
-        wins: p.wins,
-        losses: p.losses,
-        draws: p.draws,
-        goalsFor: 0,
-        goalsAgainst: 0,
-        gpm: 0,
-        form: parseFormHistory2(p.formHistory),
-        prizeMoney: 0,
-        winStreak: p.winStreak,
-        hardware: { controller: "N/A", monitor: "N/A", console: "N/A" },
-      }));
-    }
-    return [];
-  }, [hasRealData, topPlayers]);
-
-  if (spotlightItems.length === 0) {
-    return (
-      <section className="relative py-16 sm:py-24">
-        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 text-center">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent live-ring" />
-            <span className="text-[10px] font-black tracking-[0.28em] uppercase text-accent">Spotlight</span>
-          </div>
-          <h2 className="cinematic-heading text-4xl sm:text-6xl md:text-7xl text-ink leading-[0.88] mb-4">
-            The <span className="text-gradient-accent">Elite.</span>
-          </h2>
-          <p className="text-sm text-muted-soft">No top players yet. <Link href="/login" className="text-accent font-bold hover:underline">Create an account</Link> and start climbing!</p>
-        </div>
-      </section>
-    );
-  }
+    if (topPlayers.length === 0) return [];
+    return topPlayers.slice(0, 5).map((p) => ({
+      id: p.id, rank: p.rank, prev: p.rank, name: p.displayName || p.username,
+      gamertag: p.username, city: p.city || "Harare", division: "Pro" as Division,
+      points: p.points, wins: p.wins, losses: p.losses, draws: p.draws,
+      goalsFor: 0, goalsAgainst: 0, gpm: 0,
+      form: parseFormHistory2(p.formHistory), prizeMoney: 0, winStreak: p.winStreak,
+      hardware: { controller: "N/A", monitor: "N/A", console: "N/A" },
+    }));
+  }, [topPlayers]);
 
   return (
     <section className="relative py-16 sm:py-24">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(800px 400px at 50% 20%, rgba(0,230,118,0.06), transparent 60%)" }}
-      />
-
+      <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(800px 400px at 50% 20%, rgba(0,230,118,0.06), transparent 60%)" }} />
       <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="mb-8 sm:mb-12"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }} className="mb-8 sm:mb-12">
           <div className="flex items-center gap-2 mb-4">
             <span className="h-1.5 w-1.5 rounded-full bg-accent live-ring" />
             <span className="text-[10px] font-black tracking-[0.28em] uppercase text-accent">Spotlight</span>
@@ -814,32 +544,48 @@ function SpotlightSection({ onSelect, topPlayers }: { onSelect: (id: string) => 
           <h2 className="cinematic-heading text-4xl sm:text-6xl md:text-7xl text-ink leading-[0.88]">
             The <span className="text-gradient-accent">Elite.</span>
           </h2>
-          <p className="mt-4 max-w-lg text-[14px] sm:text-[15px] text-muted-soft leading-relaxed">
-            Zimbabwe&apos;s top 5 FC players &mdash; every rank earned on local soil, every point fought for on the ZW ladder.
-          </p>
+          {spotlightItems.length === 0 ? (
+            <div className="mt-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                {[1, 2, 3].map((n) => (
+                  <div key={n} className="frosted-card rounded-[20px] p-5 relative overflow-hidden">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="h-10 w-10 rounded-xl animate-pulse" style={{ background: n === 1 ? "rgba(255,184,0,0.08)" : n === 2 ? "rgba(148,163,184,0.08)" : "rgba(180,83,9,0.08)", border: `1px solid ${n === 1 ? "rgba(255,184,0,0.15)" : n === 2 ? "rgba(148,163,184,0.15)" : "rgba(180,83,9,0.15)"}` }} />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3 w-24 rounded bg-white/5 animate-pulse" />
+                        <div className="h-2 w-16 rounded bg-white/5 animate-pulse" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-2 w-full rounded bg-white/5 animate-pulse" />
+                      <div className="h-2 w-2/3 rounded bg-white/5 animate-pulse" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-4 text-[13px] text-muted-soft text-center">Top competitors emerging this season...</p>
+            </div>
+          ) : (
+            <>
+              <p className="mt-4 max-w-lg text-[14px] sm:text-[15px] text-muted-soft leading-relaxed">
+                Zimbabwe&apos;s top 5 FC players &mdash; every rank earned on local soil, every point fought for on the ZW ladder.
+              </p>
+            </>
+          )}
         </motion.div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 auto-rows-fr">
-          {spotlightItems.map((player, i) => (
-            <SpotlightCard key={player.id} player={player} index={i} onSelect={onSelect} />
-          ))}
-        </div>
+        {spotlightItems.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 auto-rows-fr">
+            {spotlightItems.map((player, i) => (
+              <SpotlightCard key={player.id} player={player} index={i} onSelect={onSelect} />
+            ))}
+          </div>
+        )}
 
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.3 }}
-          className="mt-10 sm:mt-14 text-center"
-        >
-          <Link
-            href="/rankings"
-            className="btn-ghost inline-flex items-center justify-center h-12 sm:h-13 rounded-[18px] px-8 text-base tracking-[0.14em] text-ink group"
-          >
+        <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.3 }} className="mt-10 sm:mt-14 text-center">
+          <Link href="/rankings" className="btn-ghost inline-flex items-center justify-center h-12 sm:h-13 rounded-[18px] px-8 text-base tracking-[0.14em] text-ink group">
             View Full Rankings
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1">
-              <path d="M5 12h14" /><path d="M13 5l7 7-7 7" />
-            </svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"><path d="M5 12h14" /><path d="M13 5l7 7-7 7" /></svg>
           </Link>
         </motion.div>
       </div>
