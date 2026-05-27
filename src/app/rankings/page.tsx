@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/db";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RankingsClient } from "@/components/RankingsNew";
 
@@ -11,36 +11,40 @@ export const metadata = {
 
 async function getRankings() {
   try {
-    const rankings = await prisma.playerRanking.findMany({
-      take: 100,
-      orderBy: { rankPosition: "asc" },
-      include: {
-        user: {
-          select: {
-            id: true,
-            username: true,
-            displayName: true,
-            avatarUrl: true,
-            country: true,
-            city: true,
-            playerStats: {
-              select: {
-                wins: true,
-                losses: true,
-                draws: true,
-                goalsScored: true,
-                goalsConceded: true,
-                skillRating: true,
-                winStreak: true,
-                formHistory: true,
-                mvpCount: true,
-              },
-            },
-          },
-        },
-      },
+    const result = await db.execute({
+      sql: `SELECT u.id, u.username, u.display_name, u.avatar_url, u.country, u.city,
+                   pr.rank_position, pr.prev_position, pr.rank_change, pr.points, pr.final_score,
+                   ps.wins, ps.losses, ps.draws, ps.goals_scored, ps.goals_conceded,
+                   ps.skill_rating, ps.win_streak, ps.form_history, ps.mvp_count
+            FROM player_rankings pr
+            JOIN users u ON u.id = pr.user_id
+            LEFT JOIN player_stats ps ON ps.user_id = u.id
+            ORDER BY pr.rank_position ASC
+            LIMIT 100`,
+      args: [],
     });
-    return rankings;
+    return (result.rows as any[]).map((r) => ({
+      id: r.id,
+      rank: Number(r.rank_position ?? 0),
+      prev: r.prev_position != null ? Number(r.prev_position) : Number(r.rank_position ?? 0),
+      username: r.username,
+      displayName: r.display_name ?? r.username,
+      avatarUrl: r.avatar_url,
+      country: r.country ?? "Zimbabwe",
+      city: r.city ?? "Harare",
+      points: Number(r.points ?? 0),
+      finalScore: Number(r.final_score ?? 0),
+      wins: Number(r.wins ?? 0),
+      losses: Number(r.losses ?? 0),
+      draws: Number(r.draws ?? 0),
+      goalsFor: Number(r.goals_scored ?? 0),
+      goalsAgainst: Number(r.goals_conceded ?? 0),
+      skillRating: Number(r.skill_rating ?? 1000),
+      winStreak: Number(r.win_streak ?? 0),
+      formHistory: r.form_history ?? "",
+      mvpCount: Number(r.mvp_count ?? 0),
+      rankChange: Number(r.rank_change ?? 0),
+    }));
   } catch (err) {
     console.error("[rankings page] Failed to fetch:", err);
     return [];
@@ -48,30 +52,7 @@ async function getRankings() {
 }
 
 export default async function RankingsPage() {
-  const rankings = await getRankings();
-
-  const players = rankings.map((r) => ({
-    id: r.user.id,
-    rank: r.rankPosition,
-    prev: r.prevPosition ?? r.rankPosition,
-    username: r.user.username,
-    displayName: r.user.displayName ?? r.user.username,
-    avatarUrl: r.user.avatarUrl,
-    country: r.user.country ?? "Zimbabwe",
-    city: r.user.city ?? "Harare",
-    points: r.points,
-    finalScore: r.finalScore,
-    wins: r.user.playerStats?.wins ?? 0,
-    losses: r.user.playerStats?.losses ?? 0,
-    draws: r.user.playerStats?.draws ?? 0,
-    goalsFor: r.user.playerStats?.goalsScored ?? 0,
-    goalsAgainst: r.user.playerStats?.goalsConceded ?? 0,
-    skillRating: r.user.playerStats?.skillRating ?? 1000,
-    winStreak: r.user.playerStats?.winStreak ?? 0,
-    formHistory: r.user.playerStats?.formHistory ?? "",
-    mvpCount: r.user.playerStats?.mvpCount ?? 0,
-    rankChange: r.rankChange,
-  }));
+  const players = await getRankings();
 
   return (
     <ErrorBoundary scope="rankings">

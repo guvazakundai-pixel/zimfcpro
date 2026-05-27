@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
-import { prisma } from "@/lib/prisma";
 import { PlayerHubClient } from "@/components/PlayerHubClient";
 
 export const dynamic = "force-dynamic";
@@ -20,153 +19,59 @@ export default async function PlayerDashboard() {
 
   const user = await safeQuery(async () => {
     const result = await db.execute({
-      sql: `SELECT id, username, display_name AS displayName, platform, COALESCE(country, 'Zimbabwe') AS country, avatar_url AS avatarUrl, bio FROM users WHERE id = ? LIMIT 1`,
+      sql: `SELECT id, username, display_name, platform, COALESCE(country, 'Zimbabwe') AS country, avatar_url, bio FROM users WHERE id = ? LIMIT 1`,
       args: [userId],
     });
     return (result.rows[0] as Row) ?? null;
   }, null);
 
-  const [tournamentParticipations, leagueParticipations, activities, notifications, achievements, friends, upcomingFixtures] = await Promise.all([
+  const [statsData, rankingData, notifications, achievements] = await Promise.all([
+    safeQuery(async () => {
+      const res = await db.execute({
+        sql: `SELECT matches_played, wins, losses, draws, goals_scored, goals_conceded,
+                     skill_rating, points, win_streak, form_score, form_history
+              FROM player_stats WHERE user_id = ? LIMIT 1`,
+        args: [userId],
+      });
+      return res.rows[0] as Row | undefined;
+    }, undefined),
 
-    safeQuery(() =>
-      prisma.tournamentParticipant.findMany({
-        where: { userId, status: { not: "WITHDRAWN" } },
-        include: {
-          tournament: {
-            select: { id: true, name: true, status: true, type: true, slug: true },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 10,
-      })
-    , []),
+    safeQuery(async () => {
+      const res = await db.execute({
+        sql: `SELECT rank_position, points, prev_position FROM player_rankings WHERE user_id = ? LIMIT 1`,
+        args: [userId],
+      });
+      return res.rows[0] as Row | undefined;
+    }, undefined),
 
-    safeQuery(() =>
-      prisma.leagueParticipant.findMany({
-        where: { userId },
-        include: {
-          league: {
-            select: {
-              id: true,
-              name: true,
-              status: true,
-              type: true,
-              slug: true,
-              standings: {
-                where: { userId },
-                select: {
-                  points: true,
-                  played: true,
-                  wins: true,
-                  draws: true,
-                  losses: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: { joinedAt: "desc" },
-        take: 10,
-      })
-    , []),
+    safeQuery(async () => {
+      const res = await db.execute({
+        sql: `SELECT id, title, message, is_read, created_at FROM notifications_v2 WHERE user_id = ? AND is_archived = 0 ORDER BY created_at DESC LIMIT 20`,
+        args: [userId],
+      });
+      return (res.rows as Row[]);
+    }, []),
 
-    safeQuery(() =>
-      prisma.userActivity.findMany({
-        where: { userId },
-        orderBy: { createdAt: "desc" },
-        take: 10,
-        select: { id: true, type: true, message: true, createdAt: true },
-      })
-    , []),
-
-    safeQuery(() =>
-      prisma.notificationV2.findMany({
-        where: { userId, isArchived: false },
-        orderBy: { createdAt: "desc" },
-        take: 20,
-        select: { id: true, title: true, message: true, isRead: true, createdAt: true },
-      })
-    , []),
-
-    safeQuery(() =>
-      prisma.playerAchievement.findMany({
-        where: { userId },
-        orderBy: { unlockedAt: "desc" },
-        take: 6,
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          icon: true,
-          category: true,
-          rarity: true,
-          unlockedAt: true,
-        },
-      })
-    , []),
-
-    safeQuery(() =>
-      prisma.friend.findMany({
-        where: {
-          OR: [
-            { senderId: userId, status: "ACCEPTED" },
-            { receiverId: userId, status: "ACCEPTED" },
-          ],
-        },
-        include: {
-          sender: {
-            select: {
-              id: true,
-              username: true,
-              displayName: true,
-              avatarUrl: true,
-              playerRanking: { select: { rankPosition: true } },
-            },
-          },
-          receiver: {
-            select: {
-              id: true,
-              username: true,
-              displayName: true,
-              avatarUrl: true,
-              playerRanking: { select: { rankPosition: true } },
-            },
-          },
-        },
-      })
-    , []),
-
-    safeQuery(() =>
-      prisma.leagueFixture.findMany({
-        where: {
-          status: "PENDING",
-          OR: [{ homeUserId: userId }, { awayUserId: userId }],
-        },
-        include: {
-          league: { select: { name: true } },
-          homeUser: { select: { username: true } },
-          awayUser: { select: { username: true } },
-        },
-        orderBy: { matchday: "asc" },
-        take: 10,
-      })
-    , []),
+    safeQuery(async () => {
+      const res = await db.execute({
+        sql: `SELECT id, title, description, icon, category, rarity, unlocked_at FROM player_achievements WHERE user_id = ? ORDER BY unlocked_at DESC LIMIT 6`,
+        args: [userId],
+      });
+      return (res.rows as Row[]);
+    }, []),
   ]);
 
-  const clubData = await safeQuery(() =>
-    prisma.club.findFirst({
-      where: { clubMembers: { some: { userId } } },
-      select: { id: true, name: true, slug: true, tag: true, logoUrl: true },
-    })
-  , null);
-
-  const playerStatsData = await safeQuery(() =>
-    prisma.playerStats.findUnique({ where: { userId } })
-  , null);
-
-  const playerRankingData = await safeQuery(() =>
-    prisma.playerRanking.findUnique({ where: { userId } })
-  , null);
+  const clubData = await safeQuery(async () => {
+    const res = await db.execute({
+      sql: `SELECT c.id, c.name, c.slug, c.tag, c.logo_url, cm.role
+            FROM clubs c
+            JOIN club_members cm ON cm.club_id = c.id
+            WHERE cm.user_id = ? AND cm.status = 'APPROVED'
+            LIMIT 1`,
+      args: [userId],
+    });
+    return res.rows[0] as Row | undefined;
+  }, undefined);
 
   if (!user) {
     return (
@@ -187,120 +92,75 @@ export default async function PlayerDashboard() {
 
   const club = clubData
     ? {
-        id: clubData.id,
-        name: clubData.name,
-        slug: clubData.slug,
-        tag: clubData.tag ?? null,
-        logoUrl: clubData.logoUrl,
-        membershipRole: "MEMBER",
+        id: String(clubData.id),
+        name: String(clubData.name),
+        slug: String(clubData.slug),
+        tag: clubData.tag ? String(clubData.tag) : null,
+        logoUrl: clubData.logo_url ? String(clubData.logo_url) : null,
+        membershipRole: String(clubData.role ?? "MEMBER"),
       }
     : null;
 
-  const stats = playerStatsData
+  const stats = statsData
     ? {
-        points: playerStatsData.points,
-        matchesPlayed: playerStatsData.matchesPlayed,
-        wins: playerStatsData.wins,
-        losses: playerStatsData.losses,
-        draws: playerStatsData.draws,
-        goalsScored: playerStatsData.goalsScored,
-        goalsConceded: playerStatsData.goalsConceded,
-        skillRating: playerStatsData.skillRating,
-        winStreak: playerStatsData.winStreak,
-        formScore: playerStatsData.formScore,
-        formHistory: playerStatsData.formHistory,
+        points: Number(statsData.points ?? 0),
+        matchesPlayed: Number(statsData.matches_played ?? 0),
+        wins: Number(statsData.wins ?? 0),
+        losses: Number(statsData.losses ?? 0),
+        draws: Number(statsData.draws ?? 0),
+        goalsScored: Number(statsData.goals_scored ?? 0),
+        goalsConceded: Number(statsData.goals_conceded ?? 0),
+        skillRating: Number(statsData.skill_rating ?? 1000),
+        winStreak: Number(statsData.win_streak ?? 0),
+        formScore: Number(statsData.form_score ?? 0),
+        formHistory: String(statsData.form_history ?? ""),
       }
     : null;
 
-  const rankingData2 = playerRankingData
+  const rankingData2 = rankingData
     ? {
-        rankPosition: playerRankingData.rankPosition,
-        points: playerRankingData.points,
-        prevPosition: playerRankingData.prevPosition,
-        regionalRank: (playerRankingData as Record<string, unknown>).regionalRank as number | undefined,
-        platformRank: (playerRankingData as Record<string, unknown>).platformRank as number | undefined,
+        rankPosition: Number(rankingData.rank_position ?? 0),
+        points: Number(rankingData.points ?? 0),
+        prevPosition: rankingData.prev_position != null ? Number(rankingData.prev_position) : null,
       }
     : null;
-
-  const activeTournaments = tournamentParticipations
-    .filter((tp) => tp.tournament.status !== "COMPLETED")
-    .map((tp) => ({
-      id: tp.tournament.id,
-      name: tp.tournament.name,
-      status: tp.tournament.status,
-      type: tp.tournament.type,
-      slug: tp.tournament.slug,
-      participantStatus: tp.status,
-    }));
-
-  const activeLeagues = leagueParticipations.map((lp) => {
-    const standing = lp.league.standings[0];
-    return {
-      id: lp.league.id,
-      name: lp.league.name,
-      status: lp.league.status,
-      type: lp.league.type,
-      slug: lp.league.slug,
-      standing: standing
-        ? {
-            points: standing.points,
-            played: standing.played,
-            wins: standing.wins,
-            draws: standing.draws,
-            losses: standing.losses,
-          }
-        : null,
-    };
-  });
-
-  const friendsList = friends.map((f) => {
-    const friendUser = f.sender.id === userId ? f.receiver : f.sender;
-    return {
-      id: friendUser.id,
-      username: friendUser.username,
-      displayName: friendUser.displayName,
-      avatarUrl: friendUser.avatarUrl,
-      playerRanking: friendUser.playerRanking,
-    };
-  });
 
   return (
     <div className="broadcast-theme min-h-screen bc-grain overflow-x-hidden">
       <PlayerHubClient
         user={{
-          id: user.id,
-          username: user.username,
-          displayName: user.displayName,
-          platform: user.platform ?? "CROSSPLAY",
-          country: user.country,
-          avatarUrl: user.avatarUrl,
-          bio: user.bio,
+          id: String(user.id),
+          username: String(user.username),
+          displayName: user.display_name ? String(user.display_name) : String(user.username),
+          platform: String(user.platform ?? "CROSSPLAY"),
+          country: String(user.country ?? "Zimbabwe"),
+          avatarUrl: user.avatar_url ? String(user.avatar_url) : null,
+          bio: user.bio ? String(user.bio) : null,
         }}
         stats={stats}
         ranking={rankingData2}
         club={club}
-        activeTournaments={activeTournaments}
-        activeLeagues={activeLeagues}
-        upcomingFixtures={upcomingFixtures.map((f) => ({
-          id: f.id,
-          matchday: f.matchday,
-          homeUser: { username: f.homeUser.username },
-          awayUser: { username: f.awayUser.username },
-          league: { name: f.league.name },
+        activeTournaments={[]}
+        activeLeagues={[]}
+        upcomingFixtures={[]}
+        achievements={achievements.map((a: any) => ({
+          id: String(a.id),
+          title: String(a.title),
+          description: a.description ? String(a.description) : null,
+          icon: String(a.icon ?? "🏆"),
+          category: String(a.category ?? "GENERAL"),
+          rarity: String(a.rarity ?? "COMMON"),
+          unlockedAt: String(a.unlocked_at),
         }))}
-        achievements={achievements.map((a) => ({
-          ...a,
-          unlockedAt: a.unlockedAt.toISOString(),
+        activities={[]}
+        notifications={notifications.map((n: any) => ({
+          id: String(n.id),
+          title: String(n.title),
+          message: String(n.message),
+          isRead: !!n.is_read,
+          createdAt: String(n.created_at),
         }))}
-        activities={activities.map((a) => ({
-          ...a,
-          createdAt: a.createdAt.toISOString(),
-        }))}
-        notifications={notifications.map((n) => ({
-          ...n,
-          createdAt: n.createdAt.toISOString(),
-        }))}
-        friends={friendsList}
+        friends={[]}
       />
     </div>
   );

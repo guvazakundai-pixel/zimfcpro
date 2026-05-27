@@ -1,14 +1,6 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/route-auth";
-import { eloUpdate, recomputePlayerRankings, recomputeClubRankings } from "@/lib/ranking";
-import { checkAndAward } from "@/lib/achievements";
-
-const ConfirmSchema = z.object({
-  score1: z.number().int().min(0).optional(),
-  score2: z.number().int().min(0).optional(),
-});
 
 export async function POST(
   req: Request,
@@ -18,228 +10,154 @@ export async function POST(
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
-  const match = await prisma.matchReport.findUnique({ where: { id: matchId } });
+  const matchRes = await db.execute({
+    sql: `SELECT id, player1_id, player2_id, winner_id, score1, score2,
+                 status, status_raw, submitted_by, club_id, notes
+          FROM match_reports WHERE id = ?`,
+    args: [matchId],
+  });
+  const match = matchRes.rows[0] as Record<string, unknown> | undefined;
   if (!match) return NextResponse.json({ error: "Match not found" }, { status: 404 });
 
-  if (match.status !== "PENDING") {
+  if (String(match.status) !== "PENDING") {
     return NextResponse.json({ error: "Match is not pending confirmation" }, { status: 400 });
   }
 
+  const player1Id = String(match.player1_id);
+  const player2Id = String(match.player2_id);
+  const submittedById = String(match.submitted_by);
+  const clubId = match.club_id ? String(match.club_id) : null;
+
   const confirmerId = auth.session.userId;
-  if (confirmerId !== match.player1Id && confirmerId !== match.player2Id) {
+  if (confirmerId !== player1Id && confirmerId !== player2Id) {
     return NextResponse.json({ error: "Only match players can confirm" }, { status: 403 });
   }
-
-  if (confirmerId === match.submittedById) {
-    return NextResponse.json(
-      { error: "Submitter cannot confirm their own match" },
-      { status: 400 },
-    );
+  if (confirmerId === submittedById) {
+    return NextResponse.json({ error: "Submitter cannot confirm their own match" }, { status: 400 });
   }
 
-  const body = await req.json().catch(() => null);
-  const parsed = ConfirmSchema.safeParse(body ?? {});
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid input", details: parsed.error.flatten() },
-      { status: 400 },
-    );
-  }
-
-  const score1 = parsed.data.score1 ?? match.score1;
-  const score2 = parsed.data.score2 ?? match.score2;
+  const body = await req.json().catch(() => ({}));
+  const score1 = typeof body.score1 === "number" ? Math.max(0, body.score1) : Number(match.score1);
+  const score2 = typeof body.score2 === "number" ? Math.max(0, body.score2) : Number(match.score2);
 
   let winnerId: string | null = null;
-  if (score1 > score2) winnerId = match.player1Id;
-  else if (score2 > score1) winnerId = match.player2Id;
+  if (score1 > score2) winnerId = player1Id;
+  else if (score2 > score1) winnerId = player2Id;
 
-  const confirmed = await prisma.matchReport.update({
-    where: { id: matchId },
-    data: {
-      score1,
-      score2,
-      winnerId,
-      status: "CONFIRMED",
-      statusRaw: "CONFIRMED",
-      confirmations: {
-        submittedBy: true,
-        confirmedBy: confirmerId,
-        confirmedAt: new Date().toISOString(),
-      },
-    },
-  });
-
-  await updatePlayerStats(match.player1Id, match.player2Id, score1, score2, winnerId, match.clubId);
-  await recomputePlayerRankings();
-  await recomputeClubRankings();
-
-  const [s1, s2] = await Promise.all([
-    prisma.playerStats.findUnique({ where: { userId: match.player1Id }, select: { skillRating: true } }),
-    prisma.playerStats.findUnique({ where: { userId: match.player2Id }, select: { skillRating: true } }),
-  ]);
-  await Promise.all([
-    checkAndAward(match.player1Id, {
-      newSkillRating: s1?.skillRating ?? 1000,
-      opponentSkillRating: s2?.skillRating ?? 1000,
-      goalsScoredThisMatch: score1,
-      goalsConcededThisMatch: score2,
-      isWin: winnerId === match.player1Id,
-    }),
-    checkAndAward(match.player2Id, {
-      newSkillRating: s2?.skillRating ?? 1000,
-      opponentSkillRating: s1?.skillRating ?? 1000,
-      goalsScoredThisMatch: score2,
-      goalsConcededThisMatch: score1,
-      isWin: winnerId === match.player2Id,
-    }),
-  ]);
-
-  await prisma.auditLog.create({
-    data: {
-      adminId: confirmerId,
-      action: "MATCH_CONFIRM",
-      target: `MATCH_REPORT:${matchId}`,
-      details: { score1, score2 },
-    },
-  });
-
-  return NextResponse.json({ match: confirmed });
-}
-
-async function updatePlayerStats(
-  player1Id: string,
-  player2Id: string,
-  score1: number,
-  score2: number,
-  winnerId: string | null,
-  clubId: string | null,
-) {
+  const now = new Date().toISOString();
   const isDraw = winnerId === null;
   const p1Wins = !isDraw && winnerId === player1Id;
   const p2Wins = !isDraw && winnerId === player2Id;
 
-  const [stats1, stats2] = await Promise.all([
-    prisma.playerStats.upsert({
-      where: { userId: player1Id },
-      create: { userId: player1Id },
-      update: {},
-    }),
-    prisma.playerStats.upsert({
-      where: { userId: player2Id },
-      create: { userId: player2Id },
-      update: {},
-    }),
+  await db.execute({
+    sql: `UPDATE match_reports SET status = 'CONFIRMED', status_raw = 'CONFIRMED',
+          winner_id = ?, score1 = ?, score2 = ?,
+          approved_by = ?, approved_at = ? WHERE id = ?`,
+    args: [winnerId, score1, score2, confirmerId, now, matchId],
+  });
+
+  const [s1Res, s2Res] = await Promise.all([
+    db.execute({ sql: "SELECT skill_rating, win_streak, form_history FROM player_stats WHERE user_id = ?", args: [player1Id] }),
+    db.execute({ sql: "SELECT skill_rating, win_streak, form_history FROM player_stats WHERE user_id = ?", args: [player2Id] }),
   ]);
+  const s1 = s1Res.rows[0] as Record<string, unknown> | undefined;
+  const s2 = s2Res.rows[0] as Record<string, unknown> | undefined;
 
-  const eloResult = eloUpdate(stats1.skillRating, stats2.skillRating, p1Wins ? 1 : p2Wins ? 0 : 0.5);
-
-  const updateP1: Record<string, unknown> = {
-    matchesPlayed: { increment: 1 },
-    goalsScored: { increment: score1 },
-    goalsConceded: { increment: score2 },
-    skillRating: eloResult.ratingA,
-  };
-  const updateP2: Record<string, unknown> = {
-    matchesPlayed: { increment: 1 },
-    goalsScored: { increment: score2 },
-    goalsConceded: { increment: score1 },
-    skillRating: eloResult.ratingB,
-  };
-
-  if (p1Wins) {
-    updateP1.wins = { increment: 1 };
-    updateP1.winStreak = (stats1.winStreak ?? 0) + 1;
-    updateP2.losses = { increment: 1 };
-    updateP2.winStreak = 0;
-  } else if (p2Wins) {
-    updateP2.wins = { increment: 1 };
-    updateP2.winStreak = (stats2.winStreak ?? 0) + 1;
-    updateP1.losses = { increment: 1 };
-    updateP1.winStreak = 0;
-  } else {
-    updateP1.draws = { increment: 1 };
-    updateP2.draws = { increment: 1 };
-    updateP1.winStreak = 0;
-    updateP2.winStreak = 0;
+  if (!s1 || !s2) {
+    return NextResponse.json({ error: "Player stats not found — contact admin" }, { status: 500 });
   }
 
-  const formHistory1 = (stats1.formHistory ?? "").toString();
-  const formHistory2 = (stats2.formHistory ?? "").toString();
-  const result1: "W" | "L" | "D" = p1Wins ? "W" : p2Wins ? "L" : "D";
-  const result2: "W" | "L" | "D" = p2Wins ? "W" : p1Wins ? "L" : "D";
-  updateP1.formHistory = (formHistory1 + result1).slice(-10);
-  updateP2.formHistory = (formHistory2 + result2).slice(-10);
+  const rA = Number(s1.skill_rating);
+  const rB = Number(s2.skill_rating);
+  const result = p1Wins ? 1 : p2Wins ? 0 : 0.5;
+  const expectedA = 1 / (1 + Math.pow(10, (rB - rA) / 400));
+  const deltaA = 32 * (result - expectedA);
+  const newRatingA = Math.round(rA + deltaA);
+  const newRatingB = Math.round(rB - deltaA);
 
-  const computeForm = (h: string) => {
-    const recent = h.slice(-5).split("") as ("W" | "L" | "D")[];
-    return recent.reduce((acc, r) => {
-      if (r === "W") return acc + 10;
-      if (r === "L") return acc - 5;
-      return acc + 2;
-    }, 0);
-  };
-  updateP1.formScore = computeForm(updateP1.formHistory as string);
-  updateP2.formScore = computeForm(updateP2.formHistory as string);
+  const streak1 = Number(s1.win_streak ?? 0);
+  const streak2 = Number(s2.win_streak ?? 0);
+  const fh1 = String(s1.form_history ?? "");
+  const fh2 = String(s2.form_history ?? "");
+  const result1 = p1Wins ? "W" : p2Wins ? "L" : "D";
+  const result2 = p2Wins ? "W" : p1Wins ? "L" : "D";
+  const newFh1 = (fh1 + result1).slice(-10);
+  const newFh2 = (fh2 + result2).slice(-10);
+
+  const computeForm = (h: string) => h.slice(-5).split("").reduce((a, c) => a + (c === "W" ? 10 : c === "L" ? -5 : 2), 0);
+
+  let p1Sets = "matches_played = matches_played + 1, goals_scored = goals_scored + ?, goals_conceded = goals_conceded + ?, skill_rating = ?, form_history = ?, form_score = ?, updated_at = ?";
+  let p1Args: (string | number)[] = [score1, score2, newRatingA, newFh1, computeForm(newFh1), now];
+  let p2Sets = "matches_played = matches_played + 1, goals_scored = goals_scored + ?, goals_conceded = goals_conceded + ?, skill_rating = ?, form_history = ?, form_score = ?, updated_at = ?";
+  let p2Args: (string | number)[] = [score2, score1, newRatingB, newFh2, computeForm(newFh2), now];
+
+  if (p1Wins) {
+    p1Sets += ", wins = wins + 1, win_streak = ?, points = points + 3";
+    p1Args.push(streak1 + 1);
+    p2Sets += ", losses = losses + 1, win_streak = 0";
+  } else if (p2Wins) {
+    p2Sets += ", wins = wins + 1, win_streak = ?, points = points + 3";
+    p2Args.push(streak2 + 1);
+    p1Sets += ", losses = losses + 1, win_streak = 0";
+  } else {
+    p1Sets += ", draws = draws + 1, win_streak = 0, points = points + 1";
+    p2Sets += ", draws = draws + 1, win_streak = 0, points = points + 1";
+  }
+
+  p1Args.push(player1Id);
+  p2Args.push(player2Id);
 
   await Promise.all([
-    prisma.playerStats.update({ where: { userId: player1Id }, data: updateP1 as any }),
-    prisma.playerStats.update({ where: { userId: player2Id }, data: updateP2 as any }),
+    db.execute({ sql: `UPDATE player_stats SET ${p1Sets} WHERE user_id = ?`, args: p1Args }),
+    db.execute({ sql: `UPDATE player_stats SET ${p2Sets} WHERE user_id = ?`, args: p2Args }),
   ]);
 
-  if (clubId) {
-    await prisma.globalClubRanking.upsert({
-      where: { clubId },
-      create: {
-        clubId,
-        rankPosition: 9999,
-        played: 1,
-        wins: p1Wins ? 1 : 0,
-        losses: p2Wins ? 1 : 0,
-        draws: isDraw ? 1 : 0,
-        goalsFor: score1,
-        goalsAgainst: score2,
-      },
-      update: {
-        played: { increment: 1 },
-        wins: { increment: p1Wins ? 1 : 0 },
-        losses: { increment: p2Wins ? 1 : 0 },
-        draws: { increment: isDraw ? 1 : 0 },
-        goalsFor: { increment: score1 },
-        goalsAgainst: { increment: score2 },
-      },
-    });
+  await recomputeRankingsSQL();
 
-    const otherClubId = await findOpponentClub(player2Id, clubId);
-    if (otherClubId) {
-      await prisma.globalClubRanking.upsert({
-        where: { clubId: otherClubId },
-        create: {
-          clubId: otherClubId,
-          rankPosition: 9999,
-          played: 1,
-          wins: p2Wins ? 1 : 0,
-          losses: p1Wins ? 1 : 0,
-          draws: isDraw ? 1 : 0,
-          goalsFor: score2,
-          goalsAgainst: score1,
-        },
-        update: {
-          played: { increment: 1 },
-          wins: { increment: p2Wins ? 1 : 0 },
-          losses: { increment: p1Wins ? 1 : 0 },
-          draws: { increment: isDraw ? 1 : 0 },
-          goalsFor: { increment: score2 },
-          goalsAgainst: { increment: score1 },
-        },
+  try {
+    await db.execute({
+      sql: "INSERT INTO audit_logs (id, admin_id, action, target, details, created_at) VALUES (?, ?, 'MATCH_CONFIRM', ?, ?, ?)",
+      args: [crypto.randomUUID(), confirmerId, `MATCH_REPORT:${matchId}`, JSON.stringify({ score1, score2 }), now],
+    });
+  } catch {}
+
+  return NextResponse.json({ success: true, matchId, winnerId, score1, score2 });
+}
+
+async function recomputeRankingsSQL() {
+  const stats = await db.execute({
+    sql: `SELECT ps.user_id, ps.points, ps.wins, ps.losses, ps.draws,
+                 ps.goals_scored, ps.goals_conceded, ps.skill_rating, ps.form_score
+          FROM player_stats ps`,
+    args: [],
+  });
+
+  const scored = (stats.rows as any[]).map(s => {
+    const core = Number(s.wins) * 30 + Number(s.goals_scored) * 2 - Number(s.losses) * 10;
+    const skill = Number(s.skill_rating || 1000);
+    const form = Number(s.form_score || 0);
+    return { userId: String(s.user_id), points: Number(s.points), finalScore: core + skill * 10 + form };
+  }).sort((a, b) => b.finalScore - a.finalScore);
+
+  const current = await db.execute({ sql: "SELECT user_id, rank_position FROM player_rankings", args: [] });
+  const prevMap = new Map((current.rows as any[]).map(r => [String(r.user_id), Number(r.rank_position)]));
+
+  for (let i = 0; i < scored.length; i++) {
+    const s = scored[i];
+    const newRank = i + 1;
+    const prev = prevMap.get(s.userId) ?? null;
+    const rankChange = prev != null ? prev - newRank : 0;
+
+    try {
+      await db.execute({
+        sql: `UPDATE player_rankings SET rank_position = ?, prev_position = ?, rank_change = ?, points = ?, final_score = ?, updated_at = datetime('now') WHERE user_id = ?`,
+        args: [newRank, prev, rankChange, s.points, s.finalScore, s.userId],
+      });
+    } catch {
+      await db.execute({
+        sql: `INSERT INTO player_rankings (id, user_id, rank_position, prev_position, rank_change, points, final_score, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+        args: [crypto.randomUUID(), s.userId, newRank, prev, rankChange, s.points, s.finalScore],
       });
     }
   }
-}
-
-async function findOpponentClub(playerId: string, excludeClubId: string): Promise<string | null> {
-  const membership = await prisma.clubMember.findFirst({
-    where: { userId: playerId, status: "APPROVED", clubId: { not: excludeClubId } },
-    select: { clubId: true },
-  });
-  return membership?.clubId ?? null;
 }

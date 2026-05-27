@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/db";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { ProfileSkeleton } from "@/components/Skeleton";
 import PlayerProfileClient from "./PlayerProfileClient";
 
 export const dynamic = "force-dynamic";
@@ -15,11 +14,19 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
   let wins = 0;
   let losses = 0;
   try {
-    const user = await prisma.user.findUnique({ where: { username }, select: { id: true, displayName: true } });
+    const userRes = await db.execute({
+      sql: "SELECT id, display_name FROM users WHERE username = ? LIMIT 1",
+      args: [username],
+    });
+    const user = userRes.rows[0] as any;
     if (user) {
-      displayName = user.displayName || username;
-      const stats = await prisma.playerStats.findUnique({ where: { userId: user.id }, select: { skillRating: true, wins: true, losses: true } });
-      if (stats) { skillRating = stats.skillRating; wins = stats.wins; losses = stats.losses; }
+      displayName = user.display_name || username;
+      const statsRes = await db.execute({
+        sql: "SELECT skill_rating, wins, losses FROM player_stats WHERE user_id = ? LIMIT 1",
+        args: [String(user.id)],
+      });
+      const stats = statsRes.rows[0] as any;
+      if (stats) { skillRating = Number(stats.skill_rating); wins = Number(stats.wins); losses = Number(stats.losses); }
     }
   } catch {}
   const siteUrl = process.env.NEXT_PUBLIC_URL || "https://zimfcpro.co.zw";
@@ -48,117 +55,105 @@ export default async function PlayerProfilePage({
 }) {
   const { username } = await params;
 
-  let user;
+  let user: any = null;
   try {
-    user = await prisma.user.findUnique({
-      where: { username },
-      select: {
-        id: true,
-        username: true,
-        displayName: true,
-        bio: true,
-        country: true,
-        platform: true,
-        avatarUrl: true,
-        fcUsername: true,
-        createdAt: true,
-        clubId: true,
-      },
+    const userRes = await db.execute({
+      sql: `SELECT id, username, display_name, bio, country, platform, avatar_url,
+                   fc_username, created_at, club_id
+            FROM users WHERE username = ? LIMIT 1`,
+      args: [username],
     });
-  } catch {
-    notFound();
-  }
+    user = userRes.rows[0] as any;
+  } catch {}
 
   if (!user) notFound();
 
-  let ranking, stats, club, recentMatches;
+  const userId = String(user.id);
+  const userClubId = user.club_id ? String(user.club_id) : null;
+
+  let ranking: any = null;
+  let stats: any = null;
+  let club: any = null;
+  let recentMatches: any[] = [];
+
   try {
-    [ranking, stats, club, recentMatches] = await Promise.all([
-      prisma.playerRanking.findUnique({ where: { userId: user.id } }),
-      prisma.playerStats.findUnique({ where: { userId: user.id } }),
-      user.clubId
-        ? prisma.club.findUnique({
-            where: { id: user.clubId },
-            select: { id: true, name: true, tag: true, slug: true, logoUrl: true },
-          })
-        : Promise.resolve(null),
-      prisma.matchReport.findMany({
-        where: {
-          OR: [{ player1Id: user.id }, { player2Id: user.id }],
-          status: { in: ["CONFIRMED", "APPROVED"] },
-        },
-        include: {
-          player1: { select: { id: true, username: true, displayName: true } },
-          player2: { select: { id: true, username: true, displayName: true } },
-          winner: { select: { id: true, username: true, displayName: true } },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 10,
+    const [rankRes, statsRes, matchesRes] = await Promise.all([
+      db.execute({
+        sql: "SELECT rank_position, points, rank_change, final_score FROM player_rankings WHERE user_id = ? LIMIT 1",
+        args: [userId],
+      }),
+      db.execute({
+        sql: `SELECT matches_played, wins, losses, draws, goals_scored, goals_conceded,
+                      skill_rating, points, win_streak, form_history
+               FROM player_stats WHERE user_id = ? LIMIT 1`,
+        args: [userId],
+      }),
+      db.execute({
+        sql: `SELECT m.id, m.score1, m.score2, m.winner_id, m.created_at,
+                      p1.username AS p1_username, p1.display_name AS p1_display,
+                      p2.username AS p2_username, p2.display_name AS p2_display
+               FROM match_reports m
+               LEFT JOIN users p1 ON p1.id = m.player1_id
+               LEFT JOIN users p2 ON p2.id = m.player2_id
+               WHERE (m.player1_id = ? OR m.player2_id = ?)
+                 AND m.status IN ('CONFIRMED', 'APPROVED')
+               ORDER BY m.created_at DESC LIMIT 10`,
+        args: [userId, userId],
       }),
     ]);
-  } catch {
-    ranking = null;
-    stats = null;
-    club = null;
-    recentMatches = [];
+
+    const r = rankRes.rows[0] as any;
+    if (r) ranking = { rankPosition: Number(r.rank_position), points: Number(r.points), rankChange: Number(r.rank_change), finalScore: Number(r.final_score) };
+
+    const s = statsRes.rows[0] as any;
+    if (s) stats = {
+      matchesPlayed: Number(s.matches_played), wins: Number(s.wins), losses: Number(s.losses), draws: Number(s.draws),
+      goalsScored: Number(s.goals_scored), goalsConceded: Number(s.goals_conceded),
+      skillRating: Number(s.skill_rating), points: Number(s.points),
+      winStreak: Number(s.win_streak), formHistory: String(s.form_history ?? ""),
+    };
+
+    recentMatches = (matchesRes.rows as any[]).map((m) => {
+      const isP1 = String(m.player1_id || m.p1_username) === userId || m.p1_username === username;
+      const oppUsername = isP1 ? m.p2_username : m.p1_username;
+      const oppDisplay = isP1 ? m.p2_display : m.p1_display;
+      const myScore = isP1 ? Number(m.score1) : Number(m.score2);
+      const oppScore = isP1 ? Number(m.score2) : Number(m.score1);
+      const didWin = m.winner_id === userId;
+      const isDraw = !m.winner_id;
+      return { id: String(m.id), opponent: { username: oppUsername, displayName: oppDisplay }, myScore, oppScore, didWin, isDraw, date: String(m.created_at) };
+    });
+  } catch (e) {
+    console.error("[Profile] data fetch error:", e);
   }
 
-  const matchesData = recentMatches.map((m) => {
-    const isP1 = m.player1Id === user.id;
-    const opponent = isP1 ? m.player2 : m.player1;
-    const myScore = isP1 ? m.score1 : m.score2;
-    const oppScore = isP1 ? m.score2 : m.score1;
-    const didWin = m.winnerId === user.id;
-    const isDraw = !m.winnerId;
-    return {
-      id: m.id,
-      opponent: { username: opponent.username, displayName: opponent.displayName },
-      myScore,
-      oppScore,
-      didWin,
-      isDraw,
-      date: m.createdAt.toISOString(),
-    };
-  });
+  if (userClubId) {
+    try {
+      const clubRes = await db.execute({
+        sql: "SELECT id, name, tag, slug, logo_url FROM clubs WHERE id = ? LIMIT 1",
+        args: [userClubId],
+      });
+      const c = clubRes.rows[0] as any;
+      if (c) club = { id: String(c.id), name: c.name, tag: c.tag, slug: c.slug, logoUrl: c.logo_url };
+    } catch {}
+  }
 
   const profileData = {
     user: {
-      id: user.id,
-      username: user.username,
-      displayName: user.displayName,
+      id: userId,
+      username: String(user.username),
+      displayName: user.display_name,
       bio: user.bio,
-      country: user.country,
-      platform: user.platform,
-      avatarUrl: user.avatarUrl,
-      fcUsername: user.fcUsername,
-      createdAt: user.createdAt.toISOString(),
+      country: user.country ?? "Zimbabwe",
+      platform: user.platform ?? "PS5",
+      avatarUrl: user.avatar_url,
+      fcUsername: user.fc_username,
+      createdAt: user.created_at,
     },
-    ranking: ranking ? {
-      rankPosition: ranking.rankPosition,
-      points: ranking.points,
-      rankChange: ranking.rankChange,
-      finalScore: ranking.finalScore,
-    } : null,
-    stats: stats ? {
-      matchesPlayed: stats.matchesPlayed,
-      wins: stats.wins,
-      losses: stats.losses,
-      draws: stats.draws,
-      goalsScored: stats.goalsScored,
-      goalsConceded: stats.goalsConceded,
-      skillRating: stats.skillRating,
-      points: stats.points,
-      winStreak: stats.winStreak,
-      formHistory: stats.formHistory as string,
-    } : null,
-    club: club ? {
-      id: club.id,
-      name: club.name,
-      tag: club.tag,
-      slug: club.slug,
-      logoUrl: club.logoUrl,
-    } : null,
-    recentMatches: matchesData,
+    ranking,
+    stats,
+    club,
+    recentMatches,
   };
 
   return (
