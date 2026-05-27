@@ -12,17 +12,19 @@ export async function GET(req: NextRequest) {
   const q = (searchParams.get("q") || "").trim();
   if (q.length < 2) return NextResponse.json({ users: [] });
 
+  const escaped = q.replace(/[%_\\]/g, "\\$&");
+
   try {
     const result = await db.execute({
       sql: `SELECT u.id, u.username, u.display_name, u.avatar_url,
                    pr.rank_position
             FROM users u
             LEFT JOIN player_rankings pr ON pr.user_id = u.id
-            WHERE (u.username LIKE ? OR u.display_name LIKE ?)
+            WHERE (u.username LIKE ? ESCAPE '\\' OR u.display_name LIKE ? ESCAPE '\\')
               AND u.id != ?
             ORDER BY pr.rank_position ASC
             LIMIT 10`,
-      args: [`%${q}%`, `%${q}%`, auth.session.userId],
+      args: [`%${escaped}%`, `%${escaped}%`, auth.session.userId],
     });
 
     const users = (result.rows as any[]).map((r) => ({

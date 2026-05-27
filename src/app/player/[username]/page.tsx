@@ -1,10 +1,45 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProfileSkeleton } from "@/components/Skeleton";
 import PlayerProfileClient from "./PlayerProfileClient";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 60;
+
+export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
+  const { username } = await params;
+  let displayName = username;
+  let skillRating = 1000;
+  let wins = 0;
+  let losses = 0;
+  try {
+    const user = await prisma.user.findUnique({ where: { username }, select: { id: true, displayName: true } });
+    if (user) {
+      displayName = user.displayName || username;
+      const stats = await prisma.playerStats.findUnique({ where: { userId: user.id }, select: { skillRating: true, wins: true, losses: true } });
+      if (stats) { skillRating = stats.skillRating; wins = stats.wins; losses = stats.losses; }
+    }
+  } catch {}
+  const siteUrl = process.env.NEXT_PUBLIC_URL || "https://zimfcpro.co.zw";
+  return {
+    title: `${displayName} | ZIM FCPRO`,
+    description: `${displayName} — SR ${skillRating} · ${wins}W ${losses}L on Zimbabwe's competitive FC ladder`,
+    alternates: { canonical: `${siteUrl}/player/${username}` },
+    openGraph: {
+      title: `${displayName} | ZIM FCPRO`,
+      description: `${displayName} — SR ${skillRating} · ${wins}W ${losses}L`,
+      url: `${siteUrl}/player/${username}`,
+      images: [{ url: `${siteUrl}/og-default.png`, width: 1200, height: 630 }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${displayName} | ZIM FCPRO`,
+      description: `${displayName} — SR ${skillRating} · ${wins}W ${losses}L`,
+    },
+  };
+}
 
 export default async function PlayerProfilePage({
   params,

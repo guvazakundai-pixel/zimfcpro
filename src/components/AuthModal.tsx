@@ -5,6 +5,7 @@ import { useAuthModal } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import { useAuthStore, type WelcomeData } from "@/store/auth-store";
 import { WelcomeOverlay } from "@/components/WelcomeOverlay";
+import { toast } from "sonner";
 
 type Tab = "signin" | "join" | "forgot" | "reset";
 
@@ -146,7 +147,9 @@ function SignInForm({ onClose, onForgotPassword }: { onClose: () => void; onForg
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      setError(j.error || "Login failed");
+      const msg = j.error || "Login failed";
+      setError(msg);
+      toast.error(msg);
       return;
     }
     const data = await res.json();
@@ -417,7 +420,9 @@ function JoinForm({ onClose }: { onClose: () => void }) {
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      setError(j.error || j.details?.formErrors?.[0] || "Registration failed");
+      const msg = j.error || j.details?.formErrors?.[0] || "Registration failed";
+      setError(msg);
+      toast.error(msg);
       return;
     }
     const data = await res.json();
