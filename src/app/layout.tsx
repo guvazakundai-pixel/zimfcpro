@@ -16,7 +16,7 @@ import { NotificationToast } from "@/components/RealtimeComponents";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const SITE_URL = "https://zimfcpro.co.zw";
+const SITE_URL = process.env.NEXT_PUBLIC_URL || "https://zimfcpro.co.zw";
 const SITE_TITLE = "ZIM FCPRO — Zimbabwe Pro EA FC Rankings";
 const SITE_DESC =
   "Official rankings, clubs and tournaments for Zimbabwe's competitive EA Sports FC scene.";

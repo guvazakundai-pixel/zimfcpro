@@ -19,9 +19,9 @@ const TYPE_META: Record<InviteType, { label: string; gradient: string }> = {
 };
 
 const SHARE_LINKS = [
-  { name: "WhatsApp", color: "#25D366", url: (c: string) => `https://wa.me/?text=Join%20my%20game%20on%20STAR%20STRICK%20FC26%21%20Code%3A%20${c}` },
-  { name: "Telegram", color: "#0088CC", url: (c: string) => `https://t.me/share/url?url=zimfcpro&text=Join%20my%20game%20on%20ZIM%20FCPRO%21%20Code%3A%20${c}` },
-  { name: "Discord", color: "#5865F2", url: (c: string) => `https://discord.com/app` },
+  { name: "WhatsApp", color: "#25D366", url: (c: string) => `https://wa.me/?text=Join%20my%20game%20on%20ZIM%20FCPRO%21%20Code%3A%20${c}` },
+  { name: "Telegram", color: "#0088CC", url: (c: string) => `https://t.me/share/url?url=zimfcpro.co.zw&text=Join%20my%20game%20on%20ZIM%20FCPRO%21%20Code%3A%20${c}` },
+  { name: "Copy Link", color: "#8B5CF6", url: (_c: string) => `#copy` },
 ];
 
 export function InviteSystem({ code, type, onCopy, className = "" }: InviteSystemProps) {

@@ -40,14 +40,20 @@ export function MatchValidationFlow({ matchId, matchStatus, player1Id, player2Id
       if (screenshot) {
         const formData = new FormData();
         formData.append("file", screenshot);
-        formData.append("upload_preset", "ml_default");
-        const uploadRes = await fetch("https://api.cloudinary.com/v1_1/demo/image/upload", {
-          method: "POST",
-          body: formData,
-        });
-        if (uploadRes.ok) {
-          const uploadData = await uploadRes.json();
-          screenshotUrl = uploadData.secure_url;
+        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "";
+        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "";
+        if (!cloudName) {
+          screenshotUrl = null;
+        } else {
+          formData.append("upload_preset", uploadPreset);
+          const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+            method: "POST",
+            body: formData,
+          });
+          if (uploadRes.ok) {
+            const uploadData = await uploadRes.json();
+            screenshotUrl = uploadData.secure_url;
+          }
         }
       }
 
