@@ -88,7 +88,16 @@ export function ActiveLeaguesSection({
     [leagues],
   );
 
-  if (active.length === 0) return null;
+  if (active.length === 0) {
+    return (
+      <section className={`relative py-16 sm:py-20 ${className}`}>
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 text-center">
+          <h2 className="cinematic-heading text-2xl sm:text-3xl text-ink mb-3">League <span className="text-gradient-pink">Action</span></h2>
+          <p className="text-sm text-muted-soft">No active leagues right now. <Link href="/leagues/create" className="text-purple font-bold hover:underline">Create one</Link> to get started!</p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className={`relative py-16 sm:py-20 ${className}`}>

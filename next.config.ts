@@ -11,7 +11,6 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
 
-  // ── Image optimisation ───────────────────────────────────
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**.vercel.app" },
@@ -23,12 +22,6 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // ── API body parser ──────────────────────────────────────
-  api: {
-    bodyParser: { sizeLimit: "5mb" },
-  },
-
-  // ── Security headers ─────────────────────────────────────
   async headers() {
     return [
       {

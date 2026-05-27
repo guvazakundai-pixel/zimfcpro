@@ -81,17 +81,14 @@ export async function POST(req: Request) {
   const now = new Date().toISOString();
 
   try {
-    await db.execute({ sql: "ALTER TABLE tournaments ADD COLUMN visibility TEXT DEFAULT 'PUBLIC'", args: [] });
-  } catch {}
-  try {
-    await db.execute({ sql: "ALTER TABLE tournaments ADD COLUMN settings TEXT", args: [] });
-  } catch {}
+    await db.execute({
+      sql: `INSERT INTO tournaments (id, name, slug, type, status, city, platform, prize_pool, entry_fee, creator_fee, max_players, description, start_at, visibility, settings, organizer_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 'REGISTRATION', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [id, name, slug, type, city ?? null, platform, entryFee, 500, maxPlayers, description ?? null, startAt ?? null, visibility, JSON.stringify(settings), auth.session.userId, now, now],
+    });
 
-  await db.execute({
-    sql: `INSERT INTO tournaments (id, name, slug, type, status, city, platform, prize_pool, entry_fee, creator_fee, max_players, description, start_at, visibility, settings, organizer_id, created_at, updated_at)
-          VALUES (?, ?, ?, ?, 'REGISTRATION', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [id, name, slug, type, city ?? null, platform, entryFee, 500, maxPlayers, description ?? null, startAt ?? null, visibility, JSON.stringify(settings), auth.session.userId, now, now],
-  });
-
-  return NextResponse.json({ tournament: { id, name, type, status: "REGISTRATION", slug } }, { status: 201 });
+    return NextResponse.json({ tournament: { id, name, type, status: "REGISTRATION", slug } }, { status: 201 });
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
 }

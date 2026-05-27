@@ -7,23 +7,21 @@ import { motion } from "framer-motion";
 type RankingEntry = {
   id: string;
   rankPosition: number;
+  rank: number;
   prevPosition: number | null;
   rankChange: number;
   points: number;
   finalScore: number;
-  user: {
-    id: string;
-    username: string;
-    displayName: string | null;
-    avatarUrl: string | null;
-    playerStats: {
-      wins: number;
-      losses: number;
-      draws: number;
-      goalsScored: number;
-      skillRating: number;
-    } | null;
-  };
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  playerStats: {
+    wins: number;
+    losses: number;
+    draws: number;
+    goalsScored: number;
+    skillRating: number;
+  } | null;
 };
 
 function RankChangeIcon({ change }: { change: number }) {
@@ -107,7 +105,21 @@ export function LiveRankingsWidget({
     fetch("/api/rankings/top?limit=10")
       .then((r) => r.json())
       .then((d) => {
-        setInternalRankings(d.data ?? []);
+        const raw = d.data ?? [];
+        const mapped = raw.map((r: any) => ({
+          id: r.id,
+          rankPosition: r.rank ?? r.rankPosition ?? 0,
+          rank: r.rank ?? r.rankPosition ?? 0,
+          prevPosition: null,
+          rankChange: 0,
+          points: r.points ?? 0,
+          finalScore: r.finalScore ?? 0,
+          username: r.username ?? "",
+          displayName: r.displayName ?? r.username ?? "",
+          avatarUrl: r.avatarUrl ?? null,
+          playerStats: r.playerStats ?? null,
+        }));
+        setInternalRankings(mapped);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -134,7 +146,16 @@ export function LiveRankingsWidget({
     );
   }
 
-  if (rankings.length === 0) return null;
+  if (rankings.length === 0) {
+    return (
+      <section className={`relative py-16 sm:py-20 ${className}`}>
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 text-center">
+          <h2 className="cinematic-heading text-2xl sm:text-3xl text-ink mb-3">ZW <span className="text-gradient-accent">Leaderboard</span></h2>
+          <p className="text-sm text-muted-soft">No players ranked yet. <Link href="/login" className="text-accent font-bold hover:underline">Create an account</Link> and play your first match!</p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className={`relative py-16 sm:py-20 ${className}`}>
@@ -214,20 +235,20 @@ export function LiveRankingsWidget({
                       color: "var(--accent)",
                     }}
                   >
-                    {(entry.user.displayName || entry.user.username)[0].toUpperCase()}
+                    {(entry.displayName || entry.username)[0].toUpperCase()}
                   </div>
                   <Link
-                    href={`/player/${entry.user.username}`}
+                    href={`/player/${entry.username}`}
                     className="text-sm font-bold text-ink truncate hover:text-accent transition-colors"
                   >
-                    {entry.user.displayName || entry.user.username}
+                    {entry.displayName || entry.username}
                   </Link>
                 </div>
                 <div className="w-14 text-center font-mono text-[11px] text-muted-soft tabular-nums">
-                  {entry.user.playerStats ? (
+                  {entry.playerStats ? (
                     <>
-                      {entry.user.playerStats.wins}/
-                      {entry.user.playerStats.losses}
+                      {entry.playerStats.wins}/
+                      {entry.playerStats.losses}
                     </>
                   ) : (
                     "—"

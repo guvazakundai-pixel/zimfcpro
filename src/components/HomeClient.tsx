@@ -774,7 +774,22 @@ function SpotlightSection({ onSelect, topPlayers }: { onSelect: (id: string) => 
     return [];
   }, [hasRealData, topPlayers]);
 
-  if (spotlightItems.length === 0) return null;
+  if (spotlightItems.length === 0) {
+    return (
+      <section className="relative py-16 sm:py-24">
+        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 text-center">
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent live-ring" />
+            <span className="text-[10px] font-black tracking-[0.28em] uppercase text-accent">Spotlight</span>
+          </div>
+          <h2 className="cinematic-heading text-4xl sm:text-6xl md:text-7xl text-ink leading-[0.88] mb-4">
+            The <span className="text-gradient-accent">Elite.</span>
+          </h2>
+          <p className="text-sm text-muted-soft">No top players yet. <Link href="/login" className="text-accent font-bold hover:underline">Create an account</Link> and start climbing!</p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="relative py-16 sm:py-24">

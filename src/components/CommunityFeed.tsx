@@ -46,7 +46,19 @@ export function CommunityFeed() {
 
   const displayed = useMemo(() => activities.slice(0, 12), [activities]);
 
-  if (displayed.length === 0) return null;
+  if (displayed.length === 0) {
+    return (
+      <section className="relative py-16 sm:py-20">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 text-center">
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald" />
+            <span className="text-[10px] font-black tracking-[0.28em] uppercase text-emerald">Community Activity</span>
+          </div>
+          <p className="text-sm text-muted-soft">No community activity yet. Matches and achievements will appear here.</p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="relative py-16 sm:py-20">

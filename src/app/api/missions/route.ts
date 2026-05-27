@@ -16,10 +16,6 @@ export async function GET() {
 
   const userId = auth.session.userId;
 
-  try { await db.execute("ALTER TABLE player_achievements ADD COLUMN mission_type TEXT"); } catch {}
-  try { await db.execute("ALTER TABLE player_achievements ADD COLUMN xp_reward INTEGER DEFAULT 0"); } catch {}
-  try { await db.execute("ALTER TABLE player_achievements ADD COLUMN completed INTEGER DEFAULT 0"); } catch {}
-
   const existing = await db.execute({
     sql: "SELECT title, completed FROM player_achievements WHERE user_id = ? AND mission_type IS NOT NULL",
     args: [userId],

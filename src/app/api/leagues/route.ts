@@ -11,14 +11,6 @@ function slugify(text: string): string {
 }
 
 export async function GET(req: NextRequest) {
-  try { await db.execute({ sql: "ALTER TABLE leagues ADD COLUMN max_players INTEGER DEFAULT 20", args: [] }); } catch {}
-  try { await db.execute({ sql: "ALTER TABLE leagues ADD COLUMN rounds INTEGER DEFAULT 2", args: [] }); } catch {}
-  try { await db.execute({ sql: "ALTER TABLE leagues ADD COLUMN home_away INTEGER DEFAULT 1", args: [] }); } catch {}
-  try { await db.execute({ sql: "ALTER TABLE leagues ADD COLUMN format TEXT", args: [] }); } catch {}
-  try { await db.execute({ sql: "ALTER TABLE league_seasons ADD COLUMN created_at TEXT", args: [] }); } catch {}
-  try { await db.execute({ sql: "ALTER TABLE league_seasons ADD COLUMN started_at TEXT", args: [] }); } catch {}
-  try { await db.execute({ sql: "ALTER TABLE league_seasons ADD COLUMN ended_at TEXT", args: [] }); } catch {}
-  try { await db.execute({ sql: "ALTER TABLE league_seasons ADD COLUMN season_number INTEGER DEFAULT 1", args: [] }); } catch {}
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type");
   const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
@@ -47,7 +39,7 @@ export async function GET(req: NextRequest) {
       id: r.id, name: r.name, slug: r.slug, description: r.description,
       type: r.type, status: r.status, maxPlayers: r.max_players,
       participantCount: Number(r.participant_count) || 0,
-      admin: { username: r.admin_username, displayName: r.admin_display_name },
+      adminName: r.admin_display_name || r.admin_username || "Admin",
     }));
 
     return NextResponse.json({
@@ -69,15 +61,6 @@ export async function POST(req: NextRequest) {
   if (!name || name.trim().length < 2) {
     return NextResponse.json({ error: "Name must be at least 2 characters" }, { status: 400 });
   }
-
-  try { await db.execute({ sql: "ALTER TABLE leagues ADD COLUMN max_players INTEGER DEFAULT 20", args: [] }); } catch {}
-  try { await db.execute({ sql: "ALTER TABLE leagues ADD COLUMN rounds INTEGER DEFAULT 2", args: [] }); } catch {}
-  try { await db.execute({ sql: "ALTER TABLE leagues ADD COLUMN home_away INTEGER DEFAULT 1", args: [] }); } catch {}
-  try { await db.execute({ sql: "ALTER TABLE leagues ADD COLUMN format TEXT", args: [] }); } catch {}
-  try { await db.execute({ sql: "ALTER TABLE league_seasons ADD COLUMN created_at TEXT", args: [] }); } catch {}
-  try { await db.execute({ sql: "ALTER TABLE league_seasons ADD COLUMN started_at TEXT", args: [] }); } catch {}
-  try { await db.execute({ sql: "ALTER TABLE league_seasons ADD COLUMN ended_at TEXT", args: [] }); } catch {}
-  try { await db.execute({ sql: "ALTER TABLE league_seasons ADD COLUMN season_number INTEGER DEFAULT 1", args: [] }); } catch {}
 
   try {
     let slug = slugify(name);

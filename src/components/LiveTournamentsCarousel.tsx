@@ -83,7 +83,22 @@ export function LiveTournamentsCarousel({
     [tournaments],
   );
 
-  if (active.length === 0) return null;
+  if (active.length === 0) {
+    return (
+      <section className={`relative py-16 sm:py-20 ${className}`}>
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 text-center">
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <span className="relative flex h-2 w-2">
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-negative" />
+            </span>
+            <span className="text-[10px] font-black tracking-[0.28em] uppercase text-muted-soft">Tournaments</span>
+          </div>
+          <h2 className="cinematic-heading text-2xl sm:text-3xl text-ink mb-3">Active <span className="text-gradient-accent">Competitions</span></h2>
+          <p className="text-sm text-muted-soft">No active tournaments right now. <Link href="/tournaments/create" className="text-accent font-bold hover:underline">Create one</Link> to get started!</p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className={`relative py-16 sm:py-20 ${className}`}>

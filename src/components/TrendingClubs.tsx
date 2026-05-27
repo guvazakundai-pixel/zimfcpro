@@ -80,7 +80,16 @@ export function TrendingClubs({
 
   const trending = useMemo(() => [...clubs].sort((a, b) => b.clubXp - a.clubXp).slice(0, 12), [clubs]);
 
-  if (trending.length === 0) return null;
+  if (trending.length === 0) {
+    return (
+      <section className={`relative py-16 sm:py-20 ${className}`}>
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 text-center">
+          <h2 className="cinematic-heading text-2xl sm:text-3xl text-ink mb-3">Top <span className="text-gradient-gold">Clubs</span></h2>
+          <p className="text-sm text-muted-soft">No clubs yet. <Link href="/club" className="text-gold font-bold hover:underline">Create a club</Link> and recruit players!</p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className={`relative py-16 sm:py-20 ${className}`}>

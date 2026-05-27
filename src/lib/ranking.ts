@@ -1,5 +1,15 @@
 import { prisma } from "./prisma";
-import { emitRankingUpdate } from "@/server/socket";
+
+let emitRankingUpdate: (data: any) => void = () => {};
+
+try {
+  if (typeof window === "undefined") {
+    const socketMod = require("@/server/socket");
+    emitRankingUpdate = socketMod.emitRankingUpdate || (() => {});
+  }
+} catch {
+  emitRankingUpdate = () => {};
+}
 
 export type PlayerStatsInput = {
   wins: number;
