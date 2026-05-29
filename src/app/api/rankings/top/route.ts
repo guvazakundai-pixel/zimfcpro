@@ -8,6 +8,14 @@ export async function GET(req: NextRequest) {
   const includeFake = searchParams.get("includeFake") === "true";
 
   try {
+    // Self-heal: remove duplicate rows
+    try {
+      await db.execute({ sql: `DELETE FROM player_rankings WHERE id NOT IN (SELECT MIN(id) FROM player_rankings GROUP BY user_id)`, args: [] });
+    } catch {}
+    try {
+      await db.execute({ sql: `DELETE FROM player_stats WHERE id NOT IN (SELECT MIN(id) FROM player_stats GROUP BY user_id)`, args: [] });
+    } catch {}
+
     let whereClause = "";
     const args: any[] = [];
     if (!includeFake) {
@@ -28,12 +36,12 @@ export async function GET(req: NextRequest) {
                    ps.form_score, ps.win_streak, ps.mvp_count, ps.form_history,
                    pr.rank_position, pr.points as ranking_points, pr.final_score,
                    ft.team_name, ft.team_value, ft.budget, ft.transfers_used
-            FROM (SELECT user_id, MIN(id) as id, MIN(rank_position) as rank_position, MIN(points) as points, MIN(final_score) as final_score
-                  FROM player_rankings GROUP BY user_id) pr
+            FROM player_rankings pr
             JOIN users u ON u.id = pr.user_id
             LEFT JOIN player_stats ps ON ps.user_id = u.id
             LEFT JOIN fantasy_teams ft ON ft.user_id = u.id
             ${whereClause}
+            AND pr.id IN (SELECT MIN(pr2.id) FROM player_rankings pr2 GROUP BY pr2.user_id)
             ORDER BY pr.rank_position ASC
             LIMIT ? OFFSET ?`,
       args: [...args, limit, offset],

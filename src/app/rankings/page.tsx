@@ -11,15 +11,29 @@ export const metadata = {
 
 async function getRankings() {
   try {
+    // Self-heal: remove any duplicate ranking rows per user before querying
+    try {
+      await db.execute({
+        sql: `DELETE FROM player_rankings WHERE id NOT IN (SELECT MIN(id) FROM player_rankings GROUP BY user_id)`,
+        args: [],
+      });
+    } catch {}
+    try {
+      await db.execute({
+        sql: `DELETE FROM player_stats WHERE id NOT IN (SELECT MIN(id) FROM player_stats GROUP BY user_id)`,
+        args: [],
+      });
+    } catch {}
+
     const result = await db.execute({
       sql: `SELECT u.id, u.username, u.display_name, u.avatar_url, u.country, u.city,
                    pr.rank_position, pr.prev_position, pr.rank_change, pr.points, pr.final_score,
                    ps.wins, ps.losses, ps.draws, ps.goals_scored, ps.goals_conceded,
                    ps.skill_rating, ps.win_streak, ps.form_history, ps.mvp_count
-            FROM (SELECT user_id, MIN(id) as id, MIN(rank_position) as rank_position, MIN(prev_position) as prev_position, MIN(rank_change) as rank_change, MIN(points) as points, MIN(final_score) as final_score
-                  FROM player_rankings GROUP BY user_id) pr
+            FROM player_rankings pr
             JOIN users u ON u.id = pr.user_id
             LEFT JOIN player_stats ps ON ps.user_id = u.id
+            WHERE pr.id IN (SELECT MIN(pr2.id) FROM player_rankings pr2 GROUP BY pr2.user_id)
             ORDER BY pr.rank_position ASC
             LIMIT 100`,
       args: [],

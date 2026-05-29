@@ -5,6 +5,11 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    // Self-heal: remove duplicate rows
+    try {
+      await db.execute({ sql: `DELETE FROM player_rankings WHERE id NOT IN (SELECT MIN(id) FROM player_rankings GROUP BY user_id)`, args: [] });
+    } catch {}
+
     const players = await db.execute({
       sql: `SELECT u.id, u.username, u.display_name, u.avatar_url, u.country,
                    pr.rank_position, pr.prev_position, pr.rank_change, pr.points, pr.final_score,
@@ -13,6 +18,7 @@ export async function GET() {
             FROM player_rankings pr
             JOIN users u ON u.id = pr.user_id
             LEFT JOIN player_stats ps ON ps.user_id = u.id
+            WHERE pr.id IN (SELECT MIN(pr2.id) FROM player_rankings pr2 GROUP BY pr2.user_id)
             ORDER BY pr.rank_position ASC
             LIMIT 100`,
       args: [],

@@ -10,6 +10,11 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search") || "";
 
   try {
+    // Self-heal: remove duplicate rows
+    try {
+      await db.execute({ sql: `DELETE FROM player_rankings WHERE id NOT IN (SELECT MIN(id) FROM player_rankings GROUP BY user_id)`, args: [] });
+    } catch {}
+
     const offset = (page - 1) * limit;
 
     const allowedSorts: Record<string, string> = {
@@ -39,11 +44,11 @@ export async function GET(req: NextRequest) {
                     ps.wins, ps.losses, ps.draws, ps.goals_scored, ps.goals_conceded,
                     ps.skill_rating, ps.win_streak, ps.form_history, ps.mvp_count,
                     pr.rank_position, pr.points, pr.final_score
-             FROM (SELECT user_id, MIN(id) as id, MIN(rank_position) as rank_position, MIN(points) as points, MIN(final_score) as final_score
-                   FROM player_rankings GROUP BY user_id) pr
+             FROM player_rankings pr
              JOIN users u ON u.id = pr.user_id
              LEFT JOIN player_stats ps ON ps.user_id = u.id
              ${whereClause}
+             AND pr.id IN (SELECT MIN(pr2.id) FROM player_rankings pr2 GROUP BY pr2.user_id)
              ORDER BY ${orderClause}
              LIMIT ? OFFSET ?`,
       args: [...args, limit, offset],
