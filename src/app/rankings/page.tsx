@@ -43,7 +43,14 @@ async function getRankings() {
             LIMIT 100`,
       args: [],
     });
-    return (result.rows as any[]).map((r) => ({
+    // Deduplicate by user id in case LEFT JOIN still produces dupes
+    const seen = new Set<string>();
+    const deduped = (result.rows as any[]).filter((r) => {
+      if (seen.has(String(r.id))) return false;
+      seen.add(String(r.id));
+      return true;
+    });
+    return deduped.map((r) => ({
       id: r.id,
       rank: Number(r.rank_position ?? 0),
       prev: r.prev_position != null ? Number(r.prev_position) : Number(r.rank_position ?? 0),

@@ -79,7 +79,15 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      const rankings = (dataResult.rows as any[]).map((r) => ({
+      // Deduplicate by user id
+      const seenTop = new Set<string>();
+      const dedupedTop = (dataResult.rows as any[]).filter((r) => {
+        if (seenTop.has(String(r.id))) return false;
+        seenTop.add(String(r.id));
+        return true;
+      });
+
+      const rankings = dedupedTop.map((r) => ({
       id: r.id,
       username: r.username,
       displayName: r.display_name ?? r.username,

@@ -59,7 +59,15 @@ export async function GET(req: NextRequest) {
       args: [...args, limit, offset],
     });
 
-    const rankings = (dataResult.rows as any[]).map((r) => ({
+    // Deduplicate by user id
+    const seenFull = new Set<string>();
+    const dedupedFull = (dataResult.rows as any[]).filter((r) => {
+      if (seenFull.has(String(r.id))) return false;
+      seenFull.add(String(r.id));
+      return true;
+    });
+
+    const rankings = dedupedFull.map((r) => ({
       id: r.id,
       rank: r.rank_position,
       username: r.username,

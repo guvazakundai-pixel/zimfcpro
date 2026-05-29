@@ -29,7 +29,13 @@ export async function GET() {
       args: [],
     });
 
-    const rows = players.rows as any[];
+    // Deduplicate by user id
+    const seenIds = new Set<string>();
+    const rows = (players.rows as any[]).filter((r) => {
+      if (seenIds.has(String(r.id))) return false;
+      seenIds.add(String(r.id));
+      return true;
+    });
 
     const playerOfTheWeek = (() => {
       let best: any = null;
