@@ -145,13 +145,13 @@ export async function POST(req: Request) {
 
   // Insert player stats (critical for rankings)
   await db.execute({
-    sql: "INSERT INTO player_stats (id, user_id, matches_played, wins, losses, draws, goals_scored, goals_conceded, skill_rating, points, form_score, win_streak, mvp_count, form_history, updated_at) VALUES (?, ?, 0, 0, 0, 0, 0, 0, 1000, 0, 0, 0, 0, '', ?)",
+    sql: "INSERT OR IGNORE INTO player_stats (id, user_id, matches_played, wins, losses, draws, goals_scored, goals_conceded, skill_rating, points, form_score, win_streak, mvp_count, form_history, updated_at) VALUES (?, ?, 0, 0, 0, 0, 0, 0, 1000, 0, 0, 0, 0, '', ?)",
     args: [statsId, id, now],
   });
 
-  // Insert ranking (critical)
+  // Insert ranking (critical) - use INSERT OR IGNORE to prevent duplicates
   await db.execute({
-    sql: "INSERT INTO player_rankings (id, user_id, rank_position, prev_position, rank_change, points, final_score, updated_at) VALUES (?, ?, ?, NULL, 0, 0, 0, ?)",
+    sql: "INSERT OR IGNORE INTO player_rankings (id, user_id, rank_position, prev_position, rank_change, points, final_score, updated_at) VALUES (?, ?, ?, NULL, 0, 0, 0, ?)",
     args: [rankingId, id, startingRank, now],
   });
 

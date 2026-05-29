@@ -94,7 +94,12 @@ export async function GET(req: Request) {
     }
 
     if (confirmed > 0) {
-      // Batch ranking recomputation using a single query with window function
+      // Delete duplicate rankings keeping only the earliest per user
+      await db.execute({
+        sql: `DELETE FROM player_rankings WHERE id NOT IN (SELECT MIN(id) FROM player_rankings GROUP BY user_id)`,
+        args: [],
+      });
+
       const stats = await db.execute({
         sql: `SELECT ps.user_id, ps.points, ps.wins, ps.losses, ps.draws, ps.goals_scored, ps.goals_conceded, ps.skill_rating, ps.form_score FROM player_stats ps`,
         args: [],
@@ -106,18 +111,11 @@ export async function GET(req: Request) {
         return { userId: String(s.user_id), points: Number(s.points), finalScore: core + skill * 10 + form };
       }).sort((a, b) => b.finalScore - a.finalScore);
 
-      // Build a batch UPDATE using CASE WHEN for efficiency
-      const cases = scored.map((s, i) => {
-        const newRank = i + 1;
-        const prev = new Map((stats.rows as any[]).map(r => [String(r.user_id), null])).has(s.userId) ? null : null;
-        return { userId: s.userId, newRank, points: s.points, finalScore: s.finalScore };
-      });
-
-      // Use individual updates but batch commit
-      for (const s of cases) {
+      for (const s of scored) {
+        const newRank = scored.indexOf(s) + 1;
         await db.execute({
           sql: `UPDATE player_rankings SET rank_position = ?, prev_position = COALESCE((SELECT rank_position FROM player_rankings WHERE user_id = ?), NULL), points = ?, final_score = ?, updated_at = datetime('now') WHERE user_id = ?`,
-          args: [s.newRank, s.userId, s.points, s.finalScore, s.userId],
+          args: [newRank, s.userId, s.points, s.finalScore, s.userId],
         });
       }
     }

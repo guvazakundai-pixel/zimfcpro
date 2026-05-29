@@ -111,6 +111,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ matchId
 
 async function recomputeRankingsForfeit() {
   try {
+    // Delete duplicate rankings keeping only the earliest per user
+    await db.execute({
+      sql: `DELETE FROM player_rankings WHERE id NOT IN (
+             SELECT MIN(id) FROM player_rankings GROUP BY user_id
+           )`,
+      args: [],
+    });
+
     const stats = await db.execute({
       sql: `SELECT ps.user_id, ps.points, ps.wins, ps.losses, ps.draws,
                    ps.goals_scored, ps.goals_conceded, ps.skill_rating, ps.form_score
@@ -134,17 +142,10 @@ async function recomputeRankingsForfeit() {
       const prev = prevMap.get(s.userId) ?? null;
       const rankChange = prev != null ? prev - newRank : 0;
 
-      try {
-        await db.execute({
-          sql: `UPDATE player_rankings SET rank_position = ?, prev_position = ?, rank_change = ?, points = ?, final_score = ?, updated_at = datetime('now') WHERE user_id = ?`,
-          args: [newRank, prev, rankChange, s.points, s.finalScore, s.userId],
-        });
-      } catch {
-        await db.execute({
-          sql: `INSERT INTO player_rankings (id, user_id, rank_position, prev_position, rank_change, points, final_score, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-          args: [crypto.randomUUID(), s.userId, newRank, prev, rankChange, s.points, s.finalScore],
-        });
-      }
+      await db.execute({
+        sql: `UPDATE player_rankings SET rank_position = ?, prev_position = ?, rank_change = ?, points = ?, final_score = ?, updated_at = datetime('now') WHERE user_id = ?`,
+        args: [newRank, prev, rankChange, s.points, s.finalScore, s.userId],
+      });
     }
   } catch (e) {
     console.error("[forfeit] Ranking recomputation failed:", e);

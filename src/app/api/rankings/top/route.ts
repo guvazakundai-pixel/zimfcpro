@@ -28,7 +28,8 @@ export async function GET(req: NextRequest) {
                    ps.form_score, ps.win_streak, ps.mvp_count, ps.form_history,
                    pr.rank_position, pr.points as ranking_points, pr.final_score,
                    ft.team_name, ft.team_value, ft.budget, ft.transfers_used
-            FROM player_rankings pr
+            FROM (SELECT user_id, MIN(id) as id, MIN(rank_position) as rank_position, MIN(points) as points, MIN(final_score) as final_score
+                  FROM player_rankings GROUP BY user_id) pr
             JOIN users u ON u.id = pr.user_id
             LEFT JOIN player_stats ps ON ps.user_id = u.id
             LEFT JOIN fantasy_teams ft ON ft.user_id = u.id

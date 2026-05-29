@@ -29,22 +29,23 @@ export async function GET(req: NextRequest) {
     }
 
     const countResult = await db.execute({
-      sql: `SELECT count(*) as c FROM player_rankings pr JOIN users u ON u.id = pr.user_id ${whereClause}`,
+      sql: `SELECT count(DISTINCT pr.user_id) as c FROM player_rankings pr JOIN users u ON u.id = pr.user_id ${whereClause}`,
       args,
     });
     const total = Number((countResult.rows[0] as any)?.c ?? 0);
 
     const dataResult = await db.execute({
       sql: `SELECT u.id, u.username, u.display_name, u.avatar_url, u.country, u.city,
-                   ps.wins, ps.losses, ps.draws, ps.goals_scored, ps.goals_conceded,
-                   ps.skill_rating, ps.win_streak, ps.form_history, ps.mvp_count,
-                   pr.rank_position, pr.points, pr.final_score
-            FROM player_rankings pr
-            JOIN users u ON u.id = pr.user_id
-            LEFT JOIN player_stats ps ON ps.user_id = u.id
-            ${whereClause}
-            ORDER BY ${orderClause}
-            LIMIT ? OFFSET ?`,
+                    ps.wins, ps.losses, ps.draws, ps.goals_scored, ps.goals_conceded,
+                    ps.skill_rating, ps.win_streak, ps.form_history, ps.mvp_count,
+                    pr.rank_position, pr.points, pr.final_score
+             FROM (SELECT user_id, MIN(id) as id, MIN(rank_position) as rank_position, MIN(points) as points, MIN(final_score) as final_score
+                   FROM player_rankings GROUP BY user_id) pr
+             JOIN users u ON u.id = pr.user_id
+             LEFT JOIN player_stats ps ON ps.user_id = u.id
+             ${whereClause}
+             ORDER BY ${orderClause}
+             LIMIT ? OFFSET ?`,
       args: [...args, limit, offset],
     });
 

@@ -16,7 +16,8 @@ async function getRankings() {
                    pr.rank_position, pr.prev_position, pr.rank_change, pr.points, pr.final_score,
                    ps.wins, ps.losses, ps.draws, ps.goals_scored, ps.goals_conceded,
                    ps.skill_rating, ps.win_streak, ps.form_history, ps.mvp_count
-            FROM player_rankings pr
+            FROM (SELECT user_id, MIN(id) as id, MIN(rank_position) as rank_position, MIN(prev_position) as prev_position, MIN(rank_change) as rank_change, MIN(points) as points, MIN(final_score) as final_score
+                  FROM player_rankings GROUP BY user_id) pr
             JOIN users u ON u.id = pr.user_id
             LEFT JOIN player_stats ps ON ps.user_id = u.id
             ORDER BY pr.rank_position ASC
