@@ -26,27 +26,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid match type" }, { status: 400 });
   }
 
-  if (opponentId) {
-    const validation = await validateChallenge(auth.session.userId, opponentId);
-    if (!validation.valid) {
-      return NextResponse.json({ error: validation.reason }, { status: 400 });
-    }
+  const validation = await validateChallenge(auth.session.userId, opponentId ?? null);
+  if (!validation.valid) {
+    return NextResponse.json({ error: validation.reason }, { status: 400 });
   }
 
-  const { matchRequestId, shareToken, shareUrls } = await createChallenge({
-    challengerId: auth.session.userId,
-    opponentId: opponentId ?? null,
-    matchType,
-    platform,
-    region,
-    wagerAmount: wagerAmount ?? 0,
-  });
+  try {
+    const { matchRequestId, shareToken, shareUrls } = await createChallenge({
+      challengerId: auth.session.userId,
+      opponentId: opponentId ?? null,
+      matchType,
+      platform,
+      region,
+      wagerAmount: wagerAmount ?? 0,
+    });
 
-  return NextResponse.json({
-    matchRequestId,
-    shareToken,
-    shareUrl: `${process.env.NEXT_PUBLIC_URL || "https://zimfcpro.co.zw"}/match/claim/${shareToken}`,
-    shareUrls,
-    expiresIn: "30 minutes",
-  });
+    return NextResponse.json({
+      success: true,
+      matchRequestId,
+      shareToken,
+      shareUrl: `${process.env.NEXT_PUBLIC_URL || "https://zimfcpro.co.zw"}/match/claim/${shareToken}`,
+      shareUrls,
+      expiresIn: "30 minutes",
+    });
+  } catch (e: any) {
+    console.error("[challenge]", e);
+    return NextResponse.json({ error: e.message || "Failed to create challenge" }, { status: 500 });
+  }
 }

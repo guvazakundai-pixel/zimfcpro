@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
 import { prisma } from "@/lib/prisma";
-import { getChallengeToken } from "@/lib/match-engine/challenge-token";
+import { getChallengeToken, markTokenUsed } from "@/lib/match-engine/challenge-token";
 import { acceptChallenge } from "@/lib/match-engine/service";
 import { requireAuth } from "@/lib/route-auth";
 
@@ -23,56 +24,61 @@ export async function GET(
     return NextResponse.json({ error: "Challenge link has expired" }, { status: 410 });
   }
 
-  const challenger = await prisma.user.findUnique({
-    where: { id: tokenData.challengerId },
-    select: {
-      id: true,
-      username: true,
-      displayName: true,
-      avatarUrl: true,
-      city: true,
-    },
-  });
+  try {
+    const challenger = await prisma.user.findUnique({
+      where: { id: tokenData.challengerId },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        city: true,
+      },
+    });
 
-  if (!challenger) {
-    return NextResponse.json({ error: "Challenger not found" }, { status: 404 });
+    if (!challenger) {
+      return NextResponse.json({ error: "Challenger not found" }, { status: 404 });
+    }
+
+    const challengerStats = await prisma.playerStats.findUnique({
+      where: { userId: tokenData.challengerId },
+      select: { skillRating: true, wins: true, losses: true, winStreak: true, matchesPlayed: true },
+    });
+
+    const challengerRanking = await prisma.playerRanking.findUnique({
+      where: { userId: tokenData.challengerId },
+      select: { rankPosition: true },
+    });
+
+    return NextResponse.json({
+      token: tokenData.token,
+      matchType: tokenData.matchType,
+      platform: tokenData.platform,
+      region: tokenData.region,
+      wagerAmount: tokenData.wagerAmount,
+      expiresAt: tokenData.expiresAt,
+      challenger: {
+        ...challenger,
+        stats: challengerStats
+          ? {
+              rating: Math.round(challengerStats.skillRating),
+              wins: challengerStats.wins,
+              losses: challengerStats.losses,
+              winStreak: challengerStats.winStreak,
+              matchesPlayed: challengerStats.matchesPlayed,
+              winRate:
+                challengerStats.matchesPlayed > 0
+                  ? Math.round((challengerStats.wins / challengerStats.matchesPlayed) * 100)
+                  : 0,
+            }
+          : null,
+        rank: challengerRanking?.rankPosition ?? null,
+      },
+    });
+  } catch (e) {
+    console.error("[claim GET]", e);
+    return NextResponse.json({ error: "Failed to load challenge" }, { status: 500 });
   }
-
-  const challengerStats = await prisma.playerStats.findUnique({
-    where: { userId: tokenData.challengerId },
-    select: { skillRating: true, wins: true, losses: true, winStreak: true, matchesPlayed: true },
-  });
-
-  const challengerRanking = await prisma.playerRanking.findUnique({
-    where: { userId: tokenData.challengerId },
-    select: { rankPosition: true },
-  });
-
-  return NextResponse.json({
-    token: tokenData.token,
-    matchType: tokenData.matchType,
-    platform: tokenData.platform,
-    region: tokenData.region,
-    wagerAmount: tokenData.wagerAmount,
-    expiresAt: tokenData.expiresAt,
-    challenger: {
-      ...challenger,
-      stats: challengerStats
-        ? {
-            rating: Math.round(challengerStats.skillRating),
-            wins: challengerStats.wins,
-            losses: challengerStats.losses,
-            winStreak: challengerStats.winStreak,
-            matchesPlayed: challengerStats.matchesPlayed,
-            winRate:
-              challengerStats.matchesPlayed > 0
-                ? Math.round((challengerStats.wins / challengerStats.matchesPlayed) * 100)
-                : 0,
-          }
-        : null,
-      rank: challengerRanking?.rankPosition ?? null,
-    },
-  });
 }
 
 export async function POST(
@@ -102,8 +108,9 @@ export async function POST(
 
   try {
     const result = await acceptChallenge(token, userId);
-    return NextResponse.json(result);
+    return NextResponse.json({ success: true, ...result });
   } catch (e: any) {
+    console.error("[claim POST]", e);
     return NextResponse.json({ error: e.message || "Failed to accept challenge" }, { status: 400 });
   }
 }

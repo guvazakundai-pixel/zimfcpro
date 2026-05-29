@@ -9,10 +9,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
   const { id } = await params;
-  try { await db.execute({ sql: "ALTER TABLE league_seasons ADD COLUMN created_at TEXT", args: [] }); } catch {}
-  try { await db.execute({ sql: "ALTER TABLE league_seasons ADD COLUMN started_at TEXT", args: [] }); } catch {}
-  try { await db.execute({ sql: "ALTER TABLE league_seasons ADD COLUMN ended_at TEXT", args: [] }); } catch {}
-  try { await db.execute({ sql: "ALTER TABLE league_seasons ADD COLUMN season_number INTEGER DEFAULT 1", args: [] }); } catch {}
 
   try {
     const league = await db.execute({ sql: "SELECT * FROM leagues WHERE id=?", args: [id] });
@@ -26,7 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       sql: "SELECT count(*) as cnt FROM league_fixtures WHERE league_id=?",
       args: [id],
     });
-    if (Number(existing.rows[0]?.cnt || 0) > 0) {
+    if (Number((existing.rows[0] as any)?.cnt || 0) > 0) {
       return NextResponse.json({ error: "Fixtures already generated" }, { status: 409 });
     }
 
@@ -45,6 +41,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const seasonId = (season.rows[0] as any).id;
 
     const fixtureInputs = generateRoundRobinFixtures(id, seasonId, pIds, Number(l.rounds || 2), !!l.home_away);
+
     for (const f of fixtureInputs) {
       await db.execute({
         sql: "INSERT INTO league_fixtures (id, league_id, season_id, matchday, home_user_id, away_user_id, status, created_at) VALUES (?,?,?,?,?,?,'PENDING',?)",
@@ -52,10 +49,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       });
     }
 
-    await db.execute({ sql: "UPDATE leagues SET status='LIVE', updated_at=? WHERE id=?", args: [new Date().toISOString(), id] });
+    await db.execute({
+      sql: "UPDATE leagues SET status='LIVE', updated_at=? WHERE id=?",
+      args: [new Date().toISOString(), id],
+    });
 
     return NextResponse.json({ success: true, data: { count: fixtureInputs.length } });
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    console.error("[generate-fixtures]", e);
+    return NextResponse.json({ error: "Failed to generate fixtures" }, { status: 500 });
   }
 }

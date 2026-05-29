@@ -11,38 +11,46 @@ export async function POST(
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
-  const tournRes = await db.execute({
-    sql: `SELECT id, name, type, status, organizer_id, bracket FROM tournaments WHERE id = ?`,
-    args: [tournamentId],
-  });
-  const tournRow = tournRes.rows[0] as any;
-  if (!tournRow) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const isOrganizer = tournRow.organizer_id === auth.session.userId;
-  const isAdmin = auth.session.role === "ADMIN";
-  if (!isOrganizer && !isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  if (tournRow.bracket) {
-    return NextResponse.json({ error: "Bracket already generated" }, { status: 400 });
-  }
-
-  const participantsRes = await db.execute({
-    sql: "SELECT user_id, assigned_team FROM tournament_participants WHERE tournament_id = ? AND status IN ('REGISTERED', 'ACTIVE') ORDER BY seed ASC",
-    args: [tournamentId],
-  });
-
-  const participantIds = participantsRes.rows.map((r: Record<string, unknown>) => r.user_id as string);
-
-  if (participantIds.length < 2) {
-    return NextResponse.json({ error: "Need at least 2 participants" }, { status: 400 });
-  }
-
-  const now = new Date().toISOString();
-  const type = tournRow.type as string;
-
   try {
+    const tournRes = await db.execute({
+      sql: `SELECT id, name, type, status, organizer_id, bracket FROM tournaments WHERE id = ?`,
+      args: [tournamentId],
+    });
+    const tournRow = tournRes.rows[0] as any;
+    if (!tournRow) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    const isOrganizer = tournRow.organizer_id === auth.session.userId;
+    const isAdmin = auth.session.role === "ADMIN";
+    if (!isOrganizer && !isAdmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (tournRow.status === "COMPLETED") {
+      return NextResponse.json({ error: "Cannot generate bracket for completed tournament" }, { status: 400 });
+    }
+
+    const existingMatches = await db.execute({
+      sql: "SELECT count(*) as cnt FROM tournament_matches WHERE tournament_id = ?",
+      args: [tournamentId],
+    });
+    if (Number((existingMatches.rows[0] as any)?.cnt || 0) > 0) {
+      return NextResponse.json({ error: "Bracket already generated" }, { status: 409 });
+    }
+
+    const participantsRes = await db.execute({
+      sql: "SELECT user_id, assigned_team FROM tournament_participants WHERE tournament_id = ? AND status IN ('REGISTERED', 'ACTIVE') ORDER BY seed ASC",
+      args: [tournamentId],
+    });
+
+    const participantIds = participantsRes.rows.map((r: Record<string, unknown>) => r.user_id as string);
+
+    if (participantIds.length < 2) {
+      return NextResponse.json({ error: "Need at least 2 participants" }, { status: 400 });
+    }
+
+    const now = new Date().toISOString();
+    const type = tournRow.type as string;
+
     switch (type) {
       case "KNOCKOUT": {
         const matches = generateKnockoutBracket(tournamentId, participantIds, true);
@@ -86,8 +94,8 @@ export async function POST(
         }
 
         await db.execute({
-          sql: "UPDATE tournaments SET status = 'LIVE', updated_at = ? WHERE id = ?",
-          args: [now, tournamentId],
+          sql: "UPDATE tournaments SET bracket = ?, status = 'LIVE', updated_at = ? WHERE id = ?",
+          args: [JSON.stringify({ type: "ROUND_ROBIN", participantCount: n, rounds: totalRounds }), now, tournamentId],
         });
         break;
       }
@@ -121,8 +129,8 @@ export async function POST(
         }
 
         await db.execute({
-          sql: "UPDATE tournaments SET status = 'LIVE', updated_at = ? WHERE id = ?",
-          args: [now, tournamentId],
+          sql: "UPDATE tournaments SET bracket = ?, status = 'LIVE', updated_at = ? WHERE id = ?",
+          args: [JSON.stringify({ type: "GROUPS", groupCount: groups.length }), now, tournamentId],
         });
         break;
       }
@@ -130,15 +138,16 @@ export async function POST(
       default:
         return NextResponse.json({ error: `Unsupported type: ${type}` }, { status: 400 });
     }
+
+    await db.execute({
+      sql: "UPDATE tournament_participants SET status = 'ACTIVE' WHERE tournament_id = ? AND status = 'REGISTERED'",
+      args: [tournamentId],
+    });
+
+    return NextResponse.json({ success: true });
   } catch (e: unknown) {
+    console.error("[generate-bracket]", e);
     const msg = e instanceof Error ? e.message : "Generation failed";
     return NextResponse.json({ error: msg }, { status: 400 });
   }
-
-  await db.execute({
-    sql: "UPDATE tournament_participants SET status = 'ACTIVE' WHERE tournament_id = ? AND status = 'REGISTERED'",
-    args: [tournamentId],
-  });
-
-  return NextResponse.json({ success: true });
 }

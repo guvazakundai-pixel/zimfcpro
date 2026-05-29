@@ -460,22 +460,29 @@ export async function resolveDispute(adminId: string, matchId: string, action: "
   });
 }
 
-export async function validateChallenge(userId: string, opponentId: string): Promise<{ valid: boolean; reason?: string }> {
-  if (userId === opponentId) return { valid: false, reason: "You cannot challenge yourself" };
-
-  const recent = await db.execute({
-    sql: `SELECT count(*) as c FROM match_reports 
-         WHERE status_raw = 'PENDING_ACCEPTANCE'
-         AND ((player1_id = ? AND player2_id = ?) OR (player1_id = ? AND player2_id = ?))`,
-    args: [userId, opponentId, opponentId, userId],
-  });
-  if (Number((recent.rows[0] as Record<string, unknown>)?.c ?? 0) > 0) {
-    return { valid: false, reason: "You already have a pending challenge with this player" };
-  }
-
+export async function validateChallenge(userId: string, opponentId: string | null): Promise<{ valid: boolean; reason?: string }> {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { isShadowBanned: true, isBanned: true } });
   if (user?.isBanned) return { valid: false, reason: "Your account is suspended" };
   if (user?.isShadowBanned) return { valid: false, reason: "Your account is restricted" };
+
+  if (opponentId) {
+    if (userId === opponentId) return { valid: false, reason: "You cannot challenge yourself" };
+
+    const opponent = await prisma.user.findUnique({ where: { id: opponentId }, select: { isBanned: true, isShadowBanned: true } });
+    if (!opponent) return { valid: false, reason: "Opponent not found" };
+    if (opponent.isBanned) return { valid: false, reason: "This player is suspended" };
+    if (opponent.isShadowBanned) return { valid: false, reason: "This player is restricted" };
+
+    const recent = await db.execute({
+      sql: `SELECT count(*) as c FROM match_reports 
+           WHERE status_raw = 'PENDING_ACCEPTANCE'
+           AND ((player1_id = ? AND player2_id = ?) OR (player1_id = ? AND player2_id = ?))`,
+      args: [userId, opponentId, opponentId, userId],
+    });
+    if (Number((recent.rows[0] as Record<string, unknown>)?.c ?? 0) > 0) {
+      return { valid: false, reason: "You already have a pending challenge with this player" };
+    }
+  }
 
   const recentMatches = await db.execute({
     sql: `SELECT count(*) as c FROM match_reports 
