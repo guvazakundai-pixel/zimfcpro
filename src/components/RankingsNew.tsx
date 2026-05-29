@@ -248,10 +248,21 @@ export function RankingsClient({ livePlayers }: { livePlayers?: LivePlayer[] }) 
 
   const hasLiveData = livePlayers && livePlayers.length > 0;
 
+  // Deduplicate by user ID to prevent any duplicates from rendering
+  const uniquePlayers = useMemo(() => {
+    if (!livePlayers) return [];
+    const seen = new Set<string>();
+    return livePlayers.filter(p => {
+      if (seen.has(p.id)) return false;
+      seen.add(p.id);
+      return true;
+    });
+  }, [livePlayers]);
+
   const sortedPlayers = useMemo(() => {
     const q = query.trim().toLowerCase();
     const source = hasLiveData
-      ? livePlayers!.map((p) => ({
+      ? uniquePlayers.map((p) => ({
           id: p.id,
           rank: p.rank,
           prev: p.prev,
@@ -293,7 +304,7 @@ export function RankingsClient({ livePlayers }: { livePlayers?: LivePlayer[] }) 
       const cmp = av < bv ? -1 : av > bv ? 1 : 0;
       return sortDir === "asc" ? cmp : -cmp;
     });
-  }, [query, city, sortKey, sortDir, livePlayers, hasLiveData]);
+  }, [query, city, sortKey, sortDir, uniquePlayers, hasLiveData]);
 
   const cityRankMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -321,12 +332,12 @@ export function RankingsClient({ livePlayers }: { livePlayers?: LivePlayer[] }) 
   const handleChallenge = useCallback((playerId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!loggedIn) { openAuth("signin"); return; }
-    const source = hasLiveData ? livePlayers! : [];
+    const source = hasLiveData ? uniquePlayers : [];
     const p = hasLiveData
       ? source.find((pl: LivePlayer) => pl.id === playerId)
       : PLAYERS.find((pl) => pl.id === playerId);
     setChallengeTarget(p ? { id: p.id, name: hasLiveData ? (p as LivePlayer).username : (p as Player).gamertag } : { id: playerId, name: playerId });
-  }, [loggedIn, openAuth, hasLiveData, livePlayers]);
+  }, [loggedIn, openAuth, hasLiveData, uniquePlayers]);
 
   const handleSort = useCallback((k: SortKey) => {
     setSortKey((prev) => {
@@ -354,7 +365,7 @@ export function RankingsClient({ livePlayers }: { livePlayers?: LivePlayer[] }) 
         sortDir={sortDir}
         onSort={handleSort}
         totalShown={sortedPlayers.length}
-        totalAll={hasLiveData ? livePlayers!.length : PLAYERS.length}
+        totalAll={hasLiveData ? uniquePlayers.length : PLAYERS.length}
       />
       <div className="mx-auto max-w-4xl px-3 sm:px-6 pt-4 pb-28">
         {sortedPlayers.length === 0 ? (
