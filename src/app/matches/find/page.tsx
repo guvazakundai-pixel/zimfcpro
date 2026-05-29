@@ -47,10 +47,12 @@ export default function FindMatchPage() {
   const [finding, setFinding] = useState(false);
   const [challengeTarget, setChallengeTarget] = useState<{ id: string; name: string } | null>(null);
   const [recentMatches, setRecentMatches] = useState<MatchItem[]>([]);
+  const [quickMatchError, setQuickMatchError] = useState("");
 
   const handleQuickMatch = useCallback(async () => {
     if (!session) { openAuth("join"); return; }
     setFinding(true);
+    setQuickMatchError("");
     try {
       const [hubRes, rankRes] = await Promise.all([
         fetch("/api/player/hub"),
@@ -71,11 +73,13 @@ export default function FindMatchPage() {
         .filter((p: any) => Math.abs(p.skillRating - mySkill) < 300);
       if (candidates.length === 0) {
         setFinding(false);
+        setQuickMatchError("No opponents found near your skill level. Try challenging a player directly!");
         return;
       }
       const pick = candidates[Math.floor(Math.random() * candidates.length)];
       setChallengeTarget({ id: pick.id, name: pick.displayName || pick.username });
     } catch {
+      setQuickMatchError("Connection error. Please try again.");
     } finally {
       setFinding(false);
     }
@@ -158,20 +162,25 @@ export default function FindMatchPage() {
               Jump into a match with the next available opponent at your skill level.
             </p>
             {session ? (
-              <button
-                onClick={handleQuickMatch}
-                disabled={finding}
-                className="inline-flex items-center justify-center h-10 rounded-[14px] cta-primary px-4 text-sm font-bold tracking-wider disabled:opacity-60"
-              >
-                {finding ? (
-                  <span className="flex items-center gap-2">
-                    <span className="h-3.5 w-3.5 rounded-full border-2 border-bg/30 border-t-bg animate-spin" />
-                    Finding...
-                  </span>
-                ) : (
-                  "Find Opponent"
+              <>
+                <button
+                  onClick={handleQuickMatch}
+                  disabled={finding}
+                  className="inline-flex items-center justify-center h-10 rounded-[14px] cta-primary px-4 text-sm font-bold tracking-wider disabled:opacity-60"
+                >
+                  {finding ? (
+                    <span className="flex items-center gap-2">
+                      <span className="h-3.5 w-3.5 rounded-full border-2 border-bg/30 border-t-bg animate-spin" />
+                      Finding...
+                    </span>
+                  ) : (
+                    "Find Opponent"
+                  )}
+                </button>
+                {quickMatchError && (
+                  <p className="text-negative text-[11px] mt-2">{quickMatchError}</p>
                 )}
-              </button>
+              </>
             ) : (
               <button
                 onClick={() => openAuth("join")}

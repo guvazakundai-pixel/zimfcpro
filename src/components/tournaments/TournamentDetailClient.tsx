@@ -82,6 +82,7 @@ type TournamentDetailClientProps = {
   groups: GroupData[];
   typeLabel: string;
   statusLabel: string;
+  isOrganizer?: boolean;
 };
 
 const typeLabels: Record<string, string> = {
@@ -115,19 +116,13 @@ function CalendarIcon() {
   );
 }
 
-export function TournamentDetailClient({
-  tournament,
-  participants,
-  matches,
-  groups,
-  typeLabel,
-  statusLabel,
-}: TournamentDetailClientProps) {
+export function TournamentDetailClient(props: TournamentDetailClientProps) {
+  const { tournament, participants, matches, groups, typeLabel, statusLabel, isOrganizer: isOrganizerProp } = props;
   const [activeTab, setActiveTab] = useState<string>("matchday");
   const [registering, setRegistering] = useState(false);
 
   const canRegister = tournament.status === "REGISTRATION";
-  const isOrganizer = false;
+  const isOrganizer = isOrganizerProp ?? false;
 
   const statusColor =
     tournament.status === "LIVE"

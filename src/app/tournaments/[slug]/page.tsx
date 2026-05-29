@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { getSession } from "@/lib/session";
 import { notFound } from "next/navigation";
 import { TournamentDetailClient } from "@/components/tournaments/TournamentDetailClient";
 
@@ -27,6 +28,7 @@ export default async function TournamentDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  const session = await getSession();
 
   const tournRes = await db.execute({
     sql: `SELECT t.*, u.username as organizer_username, u.display_name as organizer_display_name, u.avatar_url as organizer_avatar_url
@@ -169,6 +171,7 @@ export default async function TournamentDetailPage({
           groups={tournament.groups}
           typeLabel={typeLabel(tournament.type)}
           statusLabel={statusLabel(tournament.status)}
+          isOrganizer={session?.userId === r.organizer_id || session?.role === "ADMIN"}
         />
       </div>
     </div>

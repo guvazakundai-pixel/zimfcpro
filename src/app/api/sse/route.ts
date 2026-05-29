@@ -77,9 +77,9 @@ export async function GET(req: NextRequest) {
                   FROM match_reports m
                   LEFT JOIN users p1 ON p1.id = m.player1_id
                   LEFT JOIN users p2 ON p2.id = m.player2_id
-                  WHERE m.status_raw = 'ACTIVE'
+                  WHERE m.status_raw IN ('ACTIVE', 'SCORE_SUBMITTED', 'PENDING_VERIFICATION')
                   ORDER BY m.created_at DESC
-                  LIMIT 5`,
+                  LIMIT 10`,
             args: [],
           });
 

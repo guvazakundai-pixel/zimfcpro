@@ -7,14 +7,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
   const { id } = await params;
-  try { await db.execute({ sql: "ALTER TABLE league_seasons ADD COLUMN created_at TEXT", args: [] }); } catch {}
-  try { await db.execute({ sql: "ALTER TABLE league_seasons ADD COLUMN started_at TEXT", args: [] }); } catch {}
-  try { await db.execute({ sql: "ALTER TABLE league_seasons ADD COLUMN ended_at TEXT", args: [] }); } catch {}
-  try { await db.execute({ sql: "ALTER TABLE league_seasons ADD COLUMN season_number INTEGER DEFAULT 1", args: [] }); } catch {}
-  const { fixtureId, homeScore, awayScore } = await req.json();
 
-  if (homeScore === undefined || awayScore === undefined || homeScore < 0 || awayScore < 0) {
-    return NextResponse.json({ error: "Invalid scores" }, { status: 400 });
+  const body = await req.json().catch(() => null);
+  if (!body) return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+
+  const { fixtureId, homeScore, awayScore } = body;
+
+  if (!fixtureId || homeScore === undefined || awayScore === undefined || homeScore < 0 || awayScore < 0) {
+    return NextResponse.json({ error: "fixtureId and valid scores are required" }, { status: 400 });
   }
 
   try {
@@ -22,15 +22,38 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       sql: "SELECT * FROM league_fixtures WHERE id=? AND league_id=?",
       args: [fixtureId, id],
     });
-    if (fixtureRows.rows.length === 0) return NextResponse.json({ error: "Fixture not found" }, { status: 404 });
+    if (fixtureRows.rows.length === 0) {
+      return NextResponse.json({ error: "Fixture not found" }, { status: 404 });
+    }
     const fixture = fixtureRows.rows[0] as any;
-    if (fixture.status === "COMPLETED") return NextResponse.json({ error: "Already completed" }, { status: 409 });
+    if (fixture.status === "COMPLETED") {
+      return NextResponse.json({ error: "Already completed" }, { status: 409 });
+    }
+
+    const leagueRes = await db.execute({ sql: "SELECT id FROM leagues WHERE id=?", args: [id] });
+    if (leagueRes.rows.length === 0) {
+      return NextResponse.json({ error: "League not found" }, { status: 404 });
+    }
+
+    const isHomePlayer = auth.session.userId === fixture.home_user_id;
+    const isAwayPlayer = auth.session.userId === fixture.away_user_id;
+    const isLeagueAdmin = await db.execute({
+      sql: "SELECT admin_id FROM leagues WHERE id=?",
+      args: [id],
+    });
+    const isAdminUser = (isLeagueAdmin.rows[0] as any)?.admin_id === auth.session.userId;
+
+    if (!isHomePlayer && !isAwayPlayer && !isAdminUser) {
+      return NextResponse.json({ error: "Only match participants or the league admin can submit scores" }, { status: 403 });
+    }
 
     const season = await db.execute({
       sql: "SELECT id FROM league_seasons WHERE league_id=? AND status='ACTIVE' ORDER BY season_number DESC LIMIT 1",
       args: [id],
     });
-    if (season.rows.length === 0) return NextResponse.json({ error: "No active season" }, { status: 400 });
+    if (season.rows.length === 0) {
+      return NextResponse.json({ error: "No active season" }, { status: 400 });
+    }
     const seasonId = (season.rows[0] as any).id;
 
     await db.execute({
@@ -47,6 +70,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     return NextResponse.json({ success: true, data: { fixtureId, homeScore, awayScore } });
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    console.error("[league submit-score]", e);
+    return NextResponse.json({ error: "Failed to submit score" }, { status: 500 });
   }
 }
