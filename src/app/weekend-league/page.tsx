@@ -1,39 +1,137 @@
-"use client";
-
-import { useState } from "react";
+import { db } from "@/lib/db";
+import { getSession } from "@/lib/session";
+import { WeekendLeagueClient } from "@/components/WeekendLeagueClient";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { WeekendLeagueClient } from "@/components/WeekendLeagueClient";
 
-const MOCK_PLAYER = {
-  userId: "current",
-  username: "You",
-  displayName: "You",
-  matchesPlayed: 7,
-  wins: 5,
-  draws: 1,
-  losses: 1,
-  points: 21,
-  goalsFor: 18,
-  goalsAgainst: 7,
-  rank: "GOLD" as const,
-  matchesRemaining: 8,
-  qualificationPoints: 210,
+export const dynamic = "force-dynamic";
+
+export const metadata = {
+  title: "Weekend League · ZIM FCPRO",
+  description: "Compete in the weekly Weekend League for glory and rewards.",
 };
 
-const MOCK_STANDINGS = [
-  { userId: "p1", username: "KingKai", displayName: "KingKai", matchesPlayed: 10, wins: 8, draws: 1, losses: 1, points: 33, goalsFor: 28, goalsAgainst: 9, rank: "CHAMPION" as const, matchesRemaining: 5, qualificationPoints: 330 },
-  { userId: "p2", username: "ProdigyZW", displayName: "Prodigy", matchesPlayed: 9, wins: 7, draws: 1, losses: 1, points: 29, goalsFor: 24, goalsAgainst: 8, rank: "ELITE" as const, matchesRemaining: 6, qualificationPoints: 290 },
-  { userId: "p3", username: "NeonStriker", displayName: "Neon Striker", matchesPlayed: 9, wins: 6, draws: 2, losses: 1, points: 26, goalsFor: 22, goalsAgainst: 10, rank: "ELITE" as const, matchesRemaining: 6, qualificationPoints: 260 },
-  { userId: "current", username: "You", displayName: "You", matchesPlayed: 7, wins: 5, draws: 1, losses: 1, points: 21, goalsFor: 18, goalsAgainst: 7, rank: "GOLD" as const, matchesRemaining: 8, qualificationPoints: 210 },
-  { userId: "p4", username: "ShadowX", displayName: "Shadow X", matchesPlayed: 8, wins: 5, draws: 0, losses: 3, points: 20, goalsFor: 16, goalsAgainst: 12, rank: "GOLD" as const, matchesRemaining: 7, qualificationPoints: 200 },
-  { userId: "p5", username: "BlazeZW", displayName: "Blaze ZW", matchesPlayed: 8, wins: 4, draws: 1, losses: 3, points: 17, goalsFor: 14, goalsAgainst: 13, rank: "GOLD" as const, matchesRemaining: 7, qualificationPoints: 170 },
-  { userId: "p6", username: "FuryElite", displayName: "Fury Elite", matchesPlayed: 9, wins: 3, draws: 2, losses: 4, points: 14, goalsFor: 12, goalsAgainst: 16, rank: "SILVER" as const, matchesRemaining: 6, qualificationPoints: 140 },
-  { userId: "p7", username: "VexFC", displayName: "Vex FC", matchesPlayed: 10, wins: 2, draws: 1, losses: 7, points: 9, goalsFor: 8, goalsAgainst: 24, rank: "SILVER" as const, matchesRemaining: 5, qualificationPoints: 90 },
+type WLRank = "SILVER" | "GOLD" | "ELITE" | "CHAMPION";
+
+const RANK_THRESHOLDS: { rank: WLRank; minPts: number }[] = [
+  { rank: "CHAMPION", minPts: 300 },
+  { rank: "ELITE", minPts: 200 },
+  { rank: "GOLD", minPts: 100 },
+  { rank: "SILVER", minPts: 0 },
 ];
 
-export default function WeekendLeaguePage() {
-  const [isActive, setIsActive] = useState(true);
+function getRank(points: number): WLRank {
+  for (const t of RANK_THRESHOLDS) {
+    if (points >= t.minPts) return t.rank;
+  }
+  return "SILVER";
+}
+
+export default async function WeekendLeaguePage() {
+  const session = await getSession();
+  const userId = session?.userId;
+
+  let player = null;
+  let standings: any[] = [];
+  let isActive = false;
+  let entriesRemaining = 0;
+
+  if (userId) {
+    try {
+      const leagueRes = await db.execute({
+        sql: `SELECT l.id, l.name, l.status, l.max_players FROM leagues l 
+              WHERE l.type = 'WEEKEND' AND l.status IN ('REGISTRATION', 'LIVE') 
+              ORDER BY l.created_at DESC LIMIT 1`,
+        args: [],
+      });
+      const league = leagueRes.rows[0] as any;
+
+      if (league) {
+        isActive = league.status === "LIVE";
+
+        const [participantRes, standingsRes] = await Promise.all([
+          db.execute({
+            sql: `SELECT lp.user_id, ps.wins, ps.losses, ps.draws, ps.goals_scored, ps.goals_conceded, ps.points, ps.matches_played, u.username, u.display_name
+                  FROM league_participants lp
+                  JOIN users u ON u.id = lp.user_id
+                  LEFT JOIN player_stats ps ON ps.user_id = lp.user_id
+                  WHERE lp.league_id = ? AND lp.user_id = ?`,
+            args: [league.id, userId],
+          }),
+          db.execute({
+            sql: `SELECT ls.user_id, ls.points, ls.played as matches_played, ls.wins, ls.draws, ls.losses, ls.goals_for, ls.goals_against, ls.goal_difference,
+                         u.username, u.display_name, u.avatar_url
+                  FROM league_standings ls
+                  JOIN users u ON u.id = ls.user_id
+                  WHERE ls.league_id = ?
+                  ORDER BY ls.points DESC, ls.goal_difference DESC, ls.goals_for DESC`,
+            args: [league.id],
+          }),
+        ]);
+
+        const p = participantRes.rows[0] as any;
+        if (p) {
+          const pts = Number(p.points || 0);
+          const mp = Number(p.matches_played || 0);
+          player = {
+            userId,
+            username: p.username || "You",
+            displayName: p.display_name || p.username || "You",
+            matchesPlayed: mp,
+            wins: Number(p.wins || 0),
+            draws: Number(p.draws || 0),
+            losses: Number(p.losses || 0),
+            points: pts,
+            goalsFor: Number(p.goals_scored || 0),
+            goalsAgainst: Number(p.goals_conceded || 0),
+            rank: getRank(pts),
+            matchesRemaining: Math.max(0, 15 - mp),
+            qualificationPoints: pts,
+          };
+        }
+
+        standings = (standingsRes.rows as any[]).map((s) => {
+          const pts = Number(s.points || 0);
+          return {
+            userId: s.user_id,
+            username: s.username || "Player",
+            displayName: s.display_name || s.username || "Player",
+            matchesPlayed: Number(s.matches_played || 0),
+            wins: Number(s.wins || 0),
+            draws: Number(s.draws || 0),
+            losses: Number(s.losses || 0),
+            points: pts,
+            goalsFor: Number(s.goals_for || 0),
+            goalsAgainst: Number(s.goals_against || 0),
+            rank: getRank(pts),
+            matchesRemaining: Math.max(0, 15 - Number(s.matches_played || 0)),
+            qualificationPoints: pts,
+          };
+        });
+
+        const totalParticipants = (standingsRes.rows as any[]).length;
+        entriesRemaining = Math.max(0, Number(league.max_players || 20) - totalParticipants);
+      }
+    } catch (e) {
+      console.error("[WeekendLeague] DB error:", e);
+    }
+  }
+
+  const defaultPlayer = player || {
+    userId: "guest",
+    username: "Guest",
+    displayName: "Guest",
+    matchesPlayed: 0,
+    wins: 0,
+    draws: 0,
+    losses: 0,
+    points: 0,
+    goalsFor: 0,
+    goalsAgainst: 0,
+    rank: "SILVER" as WLRank,
+    matchesRemaining: 15,
+    qualificationPoints: 0,
+  };
 
   return (
     <div className="broadcast-theme min-h-screen bc-grain">
@@ -52,13 +150,13 @@ export default function WeekendLeaguePage() {
         </motion.div>
 
         <WeekendLeagueClient
-          player={MOCK_PLAYER}
-          standings={MOCK_STANDINGS}
-          currentUserId="current"
-          isActive={isActive}
-          entriesRemaining={3}
-          onPlayMatch={() => alert("Match started!")}
-          onClaimRewards={() => setIsActive(true)}
+          player={defaultPlayer}
+          standings={standings.length > 0 ? standings : [defaultPlayer]}
+          currentUserId={userId || undefined}
+          isActive={isActive || standings.length > 0}
+          entriesRemaining={entriesRemaining}
+          onPlayMatch={() => {}}
+          onClaimRewards={() => {}}
         />
       </div>
     </div>

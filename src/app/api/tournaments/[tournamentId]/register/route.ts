@@ -41,16 +41,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ tournam
     return NextResponse.json({ error: "Tournament is full" }, { status: 400 });
   }
 
-  try {
-    await db.execute({ sql: "ALTER TABLE tournament_participants ADD COLUMN assigned_team TEXT", args: [] });
-  } catch {}
-
   const participantId = crypto.randomUUID();
   const now = new Date().toISOString();
 
+  const assignedTeamCol = assignedTeam ? assignedTeam : null;
+
   await db.execute({
     sql: "INSERT INTO tournament_participants (id, tournament_id, user_id, seed, status, assigned_team, created_at) VALUES (?, ?, ?, ?, 'REGISTERED', ?, ?)",
-    args: [participantId, tournamentId, auth.session.userId, currentCount + 1, assignedTeam, now],
+    args: [participantId, tournamentId, auth.session.userId, currentCount + 1, assignedTeamCol, now],
   });
 
   const newCount = currentCount + 1;
@@ -60,8 +58,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ tournam
     args: [tourn.organizer_id],
   });
   const organizerRow = organizerRes.rows[0] as Record<string, unknown> | undefined;
+
+  // Get the registering user's username
+  const registeringUserRes = await db.execute({
+    sql: "SELECT username FROM users WHERE id = ?",
+    args: [auth.session.userId],
+  });
+  const registeringUsername = (registeringUserRes.rows[0] as any)?.username || "A player";
+
   if (organizerRow?.whatsapp) {
-    notifyTournamentStart(organizerRow.whatsapp as string, tourn.name as string, 1, auth.session.username);
+    notifyTournamentStart(organizerRow.whatsapp as string, tourn.name as string, 1, registeringUsername);
   }
 
   if (newCount >= Number(tourn.max_players)) {

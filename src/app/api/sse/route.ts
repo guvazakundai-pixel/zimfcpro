@@ -18,16 +18,16 @@ export async function GET(req: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       let lastCheck = Date.now();
-      let lastNotificationId = "";
+      const sentNotificationIds = new Set<string>();
 
-      // Get the latest notification ID as a starting point
+      // Get the latest notification IDs as a starting point to avoid resending
       try {
         const latest = await db.execute({
-          sql: "SELECT id FROM notifications_v2 ORDER BY created_at DESC LIMIT 1",
-          args: [],
+          sql: "SELECT id FROM notifications_v2 WHERE user_id = ? ORDER BY created_at DESC LIMIT 20",
+          args: userId ? [userId] : [],
         });
-        if (latest.rows.length > 0) {
-          lastNotificationId = (latest.rows[0] as any).id as string;
+        for (const row of latest.rows as any[]) {
+          sentNotificationIds.add(String(row.id));
         }
       } catch {}
 
@@ -35,6 +35,13 @@ export async function GET(req: NextRequest) {
       controller.enqueue(
         encoder.encode(`event: connected\ndata: ${JSON.stringify({ status: "connected", userId })}\n\n`)
       );
+
+      // Keepalive interval to prevent connection timeout
+      const keepalive = setInterval(() => {
+        try {
+          controller.enqueue(encoder.encode(": keepalive\n\n"));
+        } catch {}
+      }, 15000);
 
       // Poll for updates every 3 seconds
       const interval = setInterval(async () => {
@@ -48,12 +55,13 @@ export async function GET(req: NextRequest) {
                     FROM notifications_v2
                     WHERE user_id = ? AND created_at > ?
                     ORDER BY created_at DESC
-                    LIMIT 5`,
+                    LIMIT 10`,
               args: [userId, new Date(lastCheck).toISOString()],
             });
 
             for (const row of notifications.rows as any[]) {
-              if (row.id !== lastNotificationId) {
+              if (!sentNotificationIds.has(String(row.id))) {
+                sentNotificationIds.add(String(row.id));
                 controller.enqueue(
                   encoder.encode(`event: notification\ndata: ${JSON.stringify({
                     id: row.id,
@@ -65,7 +73,6 @@ export async function GET(req: NextRequest) {
                     createdAt: row.created_at,
                   })}\n\n`)
                 );
-                lastNotificationId = row.id;
               }
             }
           }
@@ -105,6 +112,7 @@ export async function GET(req: NextRequest) {
       // Clean up on connection close
       req.signal.addEventListener("abort", () => {
         clearInterval(interval);
+        clearInterval(keepalive);
         controller.close();
       });
     },

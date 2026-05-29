@@ -11,7 +11,7 @@ export async function GET() {
   const userId = auth.session.userId;
 
   try {
-    const [user, stats, ranking, club, activeTournaments, activeLeagues, upcomingFixtures, recentMatches, notifications] = await Promise.all([
+    const [user, stats, ranking, club, activeTournaments, activeLeagues, upcomingFixtures, recentMatches, notifications, achievements] = await Promise.all([
       prisma.user.findUnique({
         where: { id: userId },
         select: { id: true, username: true, displayName: true, platform: true, country: true, avatarUrl: true, bio: true },
@@ -56,6 +56,12 @@ export async function GET() {
         take: 20,
         select: { id: true, title: true, message: true, isRead: true, createdAt: true },
       }),
+      prisma.playerAchievement.findMany({
+        where: { userId },
+        orderBy: { unlockedAt: "desc" },
+        take: 6,
+        select: { id: true, title: true, description: true, icon: true, category: true, rarity: true, unlockedAt: true },
+      }),
     ]);
 
     return NextResponse.json({
@@ -67,7 +73,7 @@ export async function GET() {
       activeLeagues: activeLeagues.map((p: any) => p.league),
       upcomingFixtures,
       recentMatches,
-      achievements: [],
+      achievements: achievements,
       notifications,
     });
   } catch (error) {

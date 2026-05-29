@@ -90,6 +90,52 @@ export default async function PlayerDashboard() {
     );
   }
 
+  const [activeTournaments, activeLeagues, upcomingFixtures, friends] = await Promise.all([
+    safeQuery(async () => {
+      const res = await db.execute({
+        sql: `SELECT t.id, t.name, t.status, t.type FROM tournament_participants tp
+              JOIN tournaments t ON t.id = tp.tournament_id
+              WHERE tp.user_id = ? AND tp.status IN ('REGISTERED', 'ACTIVE') AND t.status IN ('REGISTRATION', 'LIVE')
+              ORDER BY t.created_at DESC LIMIT 5`,
+        args: [userId],
+      });
+      return res.rows;
+    }, []),
+    safeQuery(async () => {
+      const res = await db.execute({
+        sql: `SELECT l.id, l.name, l.status, l.type FROM league_participants lp
+              JOIN leagues l ON l.id = lp.league_id
+              WHERE lp.user_id = ? AND l.status IN ('REGISTRATION', 'LIVE')
+              ORDER BY l.created_at DESC LIMIT 5`,
+        args: [userId],
+      });
+      return res.rows;
+    }, []),
+    safeQuery(async () => {
+      const res = await db.execute({
+        sql: `SELECT lf.id, lf.matchday, hu.username AS home_username, au.username AS away_username, l.name AS league_name
+              FROM league_fixtures lf
+              JOIN leagues l ON l.id = lf.league_id
+              LEFT JOIN users hu ON hu.id = lf.home_user_id
+              LEFT JOIN users au ON au.id = lf.away_user_id
+              WHERE (lf.home_user_id = ? OR lf.away_user_id = ?) AND lf.status = 'PENDING'
+              ORDER BY lf.matchday ASC LIMIT 5`,
+        args: [userId, userId],
+      });
+      return res.rows;
+    }, []),
+    safeQuery(async () => {
+      const res = await db.execute({
+        sql: `SELECT f.id, u.username, u.display_name, u.avatar_url FROM friends f
+              JOIN users u ON u.id = CASE WHEN f.user_id = ? THEN f.friend_id ELSE f.user_id END
+              WHERE (f.user_id = ? OR f.friend_id = ?) AND f.status = 'ACCEPTED'
+              ORDER BY u.username ASC LIMIT 20`,
+        args: [userId, userId, userId],
+      });
+      return res.rows;
+    }, []),
+  ]);
+
   const club = clubData
     ? {
         id: String(clubData.id),
@@ -140,9 +186,35 @@ export default async function PlayerDashboard() {
         stats={stats}
         ranking={rankingData2}
         club={club}
-        activeTournaments={[]}
-        activeLeagues={[]}
-        upcomingFixtures={[]}
+        activeTournaments={activeTournaments.map((t: any) => ({
+          id: String(t.id),
+          name: String(t.name),
+          status: String(t.status),
+          type: String(t.type || ""),
+          slug: String(t.id),
+          participantStatus: String(t.participant_status || "REGISTERED"),
+        }))}
+        activeLeagues={activeLeagues.map((l: any) => ({
+          id: String(l.id),
+          name: String(l.name),
+          status: String(l.status),
+          type: String(l.type || ""),
+          slug: String(l.id),
+          standing: l.standing ? {
+            points: Number(l.standing.points || 0),
+            played: Number(l.standing.played || 0),
+            wins: Number(l.standing.wins || 0),
+            draws: Number(l.standing.draws || 0),
+            losses: Number(l.standing.losses || 0),
+          } : null,
+        }))}
+        upcomingFixtures={upcomingFixtures.map((f: any) => ({
+          id: String(f.id),
+          matchday: Number(f.matchday),
+          homeUser: { username: String(f.home_username || "TBD") },
+          awayUser: { username: String(f.away_username || "TBD") },
+          league: { name: String(f.league_name || "") },
+        }))}
         achievements={achievements.map((a: any) => ({
           id: String(a.id),
           title: String(a.title),
@@ -160,7 +232,13 @@ export default async function PlayerDashboard() {
           isRead: !!n.is_read,
           createdAt: String(n.created_at),
         }))}
-        friends={[]}
+        friends={friends.map((f: any) => ({
+          id: String(f.id),
+          username: String(f.username),
+          displayName: String(f.display_name || f.username),
+          avatarUrl: f.avatar_url ? String(f.avatar_url) : null,
+          playerRanking: null,
+        }))}
       />
     </div>
   );

@@ -121,20 +121,27 @@ export async function POST(req: Request) {
   const displayName = sanitizedFullName;
 
   // Insert user (critical)
-  await db.execute({
-    sql: `INSERT INTO users (
-      id, username, email, password_hash, display_name, full_name,
-      platform, country, favorite_club, phone, date_of_birth,
-      terms_accepted, terms_accepted_at, role, referral_code, referred_by,
-      referral_xp, referral_count, verification_token, verification_token_expiry,
-      created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 'PLAYER', ?, ?, 0, 0, ?, ?, ?, ?)`,
-    args: [
-      id, username, email, passwordHash, displayName, sanitizedFullName,
-      platform, country, sanitizedFavoriteClub, sanitizedPhone, dob,
-      now, code, referrerId, verificationToken, verificationTokenExpiry, now, now,
-    ],
-  });
+  try {
+    await db.execute({
+      sql: `INSERT INTO users (
+        id, username, email, password_hash, display_name, full_name,
+        platform, country, favorite_club, phone, date_of_birth,
+        terms_accepted, terms_accepted_at, role, referral_code, referred_by,
+        referral_xp, referral_count, verification_token, verification_token_expiry,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 'PLAYER', ?, ?, 0, 0, ?, ?, ?, ?)`,
+      args: [
+        id, username, email, passwordHash, displayName, sanitizedFullName,
+        platform, country, sanitizedFavoriteClub, sanitizedPhone, dob,
+        now, code, referrerId, verificationToken, verificationTokenExpiry, now, now,
+      ],
+    });
+  } catch (err: any) {
+    if (err?.message?.includes("UNIQUE constraint")) {
+      return NextResponse.json({ error: "An account with that username or email already exists." }, { status: 409 });
+    }
+    throw err;
+  }
 
   // Insert player stats (critical for rankings)
   await db.execute({

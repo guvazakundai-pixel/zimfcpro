@@ -79,13 +79,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "You already have a pending wager with this player" }, { status: 409 });
   }
 
-  try {
-    await db.execute({
-      sql: "CREATE TABLE IF NOT EXISTS wagers (id TEXT PRIMARY KEY, sender_id TEXT NOT NULL, receiver_id TEXT NOT NULL, amount INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'PENDING', created_at TEXT NOT NULL, resolved_at TEXT, winner_id TEXT, FOREIGN KEY (sender_id) REFERENCES users(id), FOREIGN KEY (receiver_id) REFERENCES users(id))",
-      args: [],
-    });
-  } catch {}
-
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
 

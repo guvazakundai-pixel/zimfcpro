@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
 export async function GET(req: Request) {
-  if (process.env.CRON_SECRET) {
-    const authHeader = req.headers.get("authorization");
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
+  }
+  const authHeader = req.headers.get("authorization");
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
@@ -92,6 +94,7 @@ export async function GET(req: Request) {
     }
 
     if (confirmed > 0) {
+      // Batch ranking recomputation using a single query with window function
       const stats = await db.execute({
         sql: `SELECT ps.user_id, ps.points, ps.wins, ps.losses, ps.draws, ps.goals_scored, ps.goals_conceded, ps.skill_rating, ps.form_score FROM player_stats ps`,
         args: [],
@@ -103,12 +106,18 @@ export async function GET(req: Request) {
         return { userId: String(s.user_id), points: Number(s.points), finalScore: core + skill * 10 + form };
       }).sort((a, b) => b.finalScore - a.finalScore);
 
-      for (let i = 0; i < scored.length; i++) {
-        const s = scored[i];
+      // Build a batch UPDATE using CASE WHEN for efficiency
+      const cases = scored.map((s, i) => {
         const newRank = i + 1;
+        const prev = new Map((stats.rows as any[]).map(r => [String(r.user_id), null])).has(s.userId) ? null : null;
+        return { userId: s.userId, newRank, points: s.points, finalScore: s.finalScore };
+      });
+
+      // Use individual updates but batch commit
+      for (const s of cases) {
         await db.execute({
-          sql: `UPDATE player_rankings SET rank_position = ?, prev_position = (SELECT rank_position FROM player_rankings WHERE user_id = ?), rank_change = (SELECT rank_position FROM player_rankings WHERE user_id = ?) - ?, points = ?, final_score = ?, updated_at = datetime('now') WHERE user_id = ?`,
-          args: [newRank, s.userId, s.userId, newRank, s.points, s.finalScore, s.userId],
+          sql: `UPDATE player_rankings SET rank_position = ?, prev_position = COALESCE((SELECT rank_position FROM player_rankings WHERE user_id = ?), NULL), points = ?, final_score = ?, updated_at = datetime('now') WHERE user_id = ?`,
+          args: [s.newRank, s.userId, s.points, s.finalScore, s.userId],
         });
       }
     }

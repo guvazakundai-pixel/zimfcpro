@@ -39,6 +39,45 @@ export async function POST(req: Request, { params }: { params: Promise<{ matchId
       args: [winnerId, `Forfeit: ${reason}`, now, matchId],
     });
 
+    // Update player stats for forfeit
+    const [wStats, lStats] = await Promise.all([
+      db.execute({ sql: "SELECT id, skill_rating, win_streak, form_history, form_score, matches_played, wins, losses, goals_scored, goals_conceded, points FROM player_stats WHERE user_id = ?", args: [winnerId] }),
+      db.execute({ sql: "SELECT id, skill_rating, win_streak, form_history, form_score, matches_played, wins, losses, goals_scored, goals_conceded, points FROM player_stats WHERE user_id = ?", args: [loserId] }),
+    ]);
+
+    const ws = wStats.rows[0] as Record<string, unknown> | undefined;
+    const ls = lStats.rows[0] as Record<string, unknown> | undefined;
+
+    if (ws && ls) {
+      const rW = Number(ws.skill_rating || 1000);
+      const rL = Number(ls.skill_rating || 1000);
+      const expectedW = 1 / (1 + Math.pow(10, (rL - rW) / 400));
+      const deltaW = 32 * (1 - expectedW);
+      const newRatingW = Math.round(rW + deltaW);
+      const newRatingL = Math.round(rL - deltaW);
+
+      const wStreak = Number(ws.win_streak || 0);
+      const lFh = String(ls.form_history || "");
+      const wFh = String(ws.form_history || "");
+      const newFhW = (wFh + "W").slice(-10);
+      const newFhL = (lFh + "L").slice(-10);
+      const computeForm = (h: string) => h.slice(-5).split("").reduce((a, c) => a + (c === "W" ? 10 : c === "L" ? -5 : 2), 0);
+
+      await Promise.all([
+        db.execute({
+          sql: `UPDATE player_stats SET matches_played = matches_played + 1, wins = wins + 1, win_streak = ?, points = points + 3, skill_rating = ?, form_history = ?, form_score = ?, updated_at = ? WHERE user_id = ?`,
+          args: [wStreak + 1, newRatingW, newFhW, computeForm(newFhW), now, winnerId],
+        }),
+        db.execute({
+          sql: `UPDATE player_stats SET matches_played = matches_played + 1, losses = losses + 1, win_streak = 0, skill_rating = ?, form_history = ?, form_score = ?, updated_at = ? WHERE user_id = ?`,
+          args: [newRatingL, newFhL, computeForm(newFhL), now, loserId],
+        }),
+      ]);
+
+      // Recompute rankings
+      await recomputeRankingsForfeit();
+    }
+
     try {
       const loserRows = await db.execute({
         sql: "SELECT username, display_name FROM users WHERE id = ?",
@@ -67,5 +106,47 @@ export async function POST(req: Request, { params }: { params: Promise<{ matchId
   } catch (e) {
     console.error("[forfeit]", e);
     return NextResponse.json({ error: "Failed to forfeit match" }, { status: 500 });
+  }
+}
+
+async function recomputeRankingsForfeit() {
+  try {
+    const stats = await db.execute({
+      sql: `SELECT ps.user_id, ps.points, ps.wins, ps.losses, ps.draws,
+                   ps.goals_scored, ps.goals_conceded, ps.skill_rating, ps.form_score
+            FROM player_stats ps`,
+      args: [],
+    });
+
+    const scored = (stats.rows as any[]).map(s => {
+      const core = Number(s.wins) * 30 + Number(s.goals_scored) * 2 - Number(s.losses) * 10;
+      const skill = Number(s.skill_rating || 1000);
+      const form = Number(s.form_score || 0);
+      return { userId: String(s.user_id), points: Number(s.points), finalScore: core + skill * 10 + form };
+    }).sort((a, b) => b.finalScore - a.finalScore);
+
+    const current = await db.execute({ sql: "SELECT user_id, rank_position FROM player_rankings", args: [] });
+    const prevMap = new Map((current.rows as any[]).map(r => [String(r.user_id), Number(r.rank_position)]));
+
+    for (let i = 0; i < scored.length; i++) {
+      const s = scored[i];
+      const newRank = i + 1;
+      const prev = prevMap.get(s.userId) ?? null;
+      const rankChange = prev != null ? prev - newRank : 0;
+
+      try {
+        await db.execute({
+          sql: `UPDATE player_rankings SET rank_position = ?, prev_position = ?, rank_change = ?, points = ?, final_score = ?, updated_at = datetime('now') WHERE user_id = ?`,
+          args: [newRank, prev, rankChange, s.points, s.finalScore, s.userId],
+        });
+      } catch {
+        await db.execute({
+          sql: `INSERT INTO player_rankings (id, user_id, rank_position, prev_position, rank_change, points, final_score, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+          args: [crypto.randomUUID(), s.userId, newRank, prev, rankChange, s.points, s.finalScore],
+        });
+      }
+    }
+  } catch (e) {
+    console.error("[forfeit] Ranking recomputation failed:", e);
   }
 }

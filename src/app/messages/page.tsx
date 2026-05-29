@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useUser, useAuthModal } from "@/lib/auth-context";
@@ -30,13 +30,13 @@ export default function MessagesPage() {
   const [pageLoading, setPageLoading] = useState(true);
 
   // Load conversations on mount if authenticated
-  useState(() => {
+  useEffect(() => {
     if (!isAuthenticated) { setPageLoading(false); return; }
     fetch("/api/messages")
       .then((r) => r.json())
       .then((d) => { setConversations(d.conversations ?? []); setPageLoading(false); })
       .catch(() => setPageLoading(false));
-  });
+  }, [isAuthenticated]);
 
   const loadMessages = async (convId: string) => {
     setActiveChat(convId);

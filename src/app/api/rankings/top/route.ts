@@ -38,7 +38,33 @@ export async function GET(req: NextRequest) {
       args: [...args, limit, offset],
     });
 
-    const rankings = (dataResult.rows as any[]).map((r) => ({
+      // Fetch achievements for top 50 players
+      const topUserIds = (dataResult.rows as any[]).slice(0, 50).map(r => r.id);
+      let achievementsMap: Record<string, any[]> = {};
+      if (topUserIds.length > 0) {
+        const placeholders = topUserIds.map(() => '?').join(',');
+        const achResult = await db.execute({
+          sql: `SELECT pa.user_id, pa.id, pa.title, pa.description, pa.icon, pa.category, pa.rarity, pa.unlocked_at
+                FROM player_achievements pa
+                WHERE pa.user_id IN (${placeholders})
+                ORDER BY pa.unlocked_at DESC`,
+          args: topUserIds,
+        });
+        for (const ach of achResult.rows as any[]) {
+          if (!achievementsMap[ach.user_id]) achievementsMap[ach.user_id] = [];
+          achievementsMap[ach.user_id].push({
+            id: ach.id,
+            title: ach.title,
+            description: ach.description,
+            icon: ach.icon,
+            category: ach.category,
+            rarity: ach.rarity,
+            unlockedAt: ach.unlocked_at,
+          });
+        }
+      }
+
+      const rankings = (dataResult.rows as any[]).map((r) => ({
       id: r.id,
       username: r.username,
       displayName: r.display_name ?? r.username,
@@ -70,8 +96,8 @@ export async function GET(req: NextRequest) {
         mvpCount: r.mvp_count ?? 0,
         formHistory: r.form_history ?? "",
       },
-      // Simple placeholder — achievements require separate lookup
-      playerAchievements: [],
+      // Simple placeholder — achievements loaded separately for top 50
+      playerAchievements: achievementsMap[r.id] || [],
     }));
 
     return NextResponse.json({ success: true, data: rankings, total });

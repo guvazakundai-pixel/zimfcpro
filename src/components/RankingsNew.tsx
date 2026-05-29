@@ -10,20 +10,14 @@ import {
 import {
   PLAYERS,
 } from "@/lib/players";
-import type { Player, Division } from "@/lib/players";
+import type { Player, Division, City, FormResult } from "@/lib/players";
 import { CLUBS, clubByPlayerId } from "@/lib/clubs";
 import type { Club } from "@/lib/clubs";
 import { useAuthModal } from "@/lib/auth-context";
 import { PlayerDetailModal } from "@/components/PlayerDetailModal";
 import { ChallengeModal } from "@/components/match/ChallengeModal";
 import {
-  mostImproved,
-  biggestFallers,
-  playerOfTheWeek,
-  cityRivalries,
   formSparkline,
-  eloTierTitle,
-  eloTierEmoji,
 } from "@/lib/stats";
 import type { SparklineBar } from "@/lib/stats";
 
@@ -1137,7 +1131,10 @@ function FireIcon() {
 }
 
 function PlayerOfTheWeekBanner() {
-  const potw = useMemo(() => playerOfTheWeek(), []);
+  const [potw, setPotw] = useState<{ username: string; displayName: string; points: number; winStreak: number } | null>(null);
+  useEffect(() => {
+    fetch("/api/rankings/insights").then(r => r.json()).then(d => { if (d.success) setPotw(d.playerOfTheWeek); }).catch(() => {});
+  }, []);
   if (!potw) return null;
   return (
     <div className="mx-auto max-w-4xl px-3 sm:px-6 pt-4">
@@ -1146,14 +1143,14 @@ function PlayerOfTheWeekBanner() {
           <span className="shrink-0 text-2xl sm:text-3xl">🏆</span>
           <div className="min-w-0 flex-1">
             <p className="text-[9px] font-black tracking-[0.22em] uppercase text-accent/70">Player of the Week</p>
-            <p className="cinematic-heading text-lg sm:text-xl text-ink truncate max-w-[300px]">{potw.gamertag}</p>
+            <p className="cinematic-heading text-lg sm:text-xl text-ink truncate max-w-[300px]">{potw.displayName || potw.username}</p>
           </div>
           <div className="shrink-0 text-right">
-            <p className="bc-mono-score text-lg sm:text-xl tabular-nums text-accent font-bold">{potw.points.toLocaleString()}</p>
+            <p className="bc-mono-score text-lg sm:text-xl tabular-nums text-accent font-bold">{(potw.points || 0).toLocaleString()}</p>
             <p className="text-[8px] font-black tracking-[0.2em] uppercase text-muted-faint">PTS</p>
           </div>
           <span className="hidden sm:inline-flex items-center gap-1 rounded-[8px] px-2.5 h-7 text-[9px] font-black uppercase tracking-wider bg-accent/10 text-accent border border-accent/20 shrink-0">
-            <span className="text-[11px]">🔥</span> {potw.winStreak}W Streak
+            <span className="text-[11px]">🔥</span> {potw.winStreak || 0}W Streak
           </span>
         </div>
       </div>
@@ -1162,32 +1159,36 @@ function PlayerOfTheWeekBanner() {
 }
 
 function MovementStrip() {
-  const improved = useMemo(() => mostImproved(3), []);
-  const fallers = useMemo(() => biggestFallers(3), []);
-  if (improved.length === 0 && fallers.length === 0) return null;
+  const [insights, setInsights] = useState<{ mostImproved: { id: string; username: string; displayName: string; delta: number }[]; biggestFallers: { id: string; username: string; displayName: string; delta: number }[] }>({ mostImproved: [], biggestFallers: [] });
+  useEffect(() => {
+    fetch("/api/rankings/insights").then(r => r.json()).then(d => {
+      if (d.success) setInsights({ mostImproved: d.mostImproved || [], biggestFallers: d.biggestFallers || [] });
+    }).catch(() => {});
+  }, []);
+  if (insights.mostImproved.length === 0 && insights.biggestFallers.length === 0) return null;
   return (
     <div className="mx-auto max-w-4xl px-3 sm:px-6 pt-3">
       <div className="flex items-stretch gap-2 overflow-x-auto bc-no-scrollbar">
-        {improved.length > 0 && (
+        {insights.mostImproved.length > 0 && (
           <div className="shrink-0 rounded-[12px] border border-accent/15 bg-accent/5 px-3 py-2 min-w-[200px]">
             <p className="text-[8px] font-black tracking-[0.22em] uppercase text-accent/70 mb-1.5">🔥 Most Improved</p>
             <div className="space-y-1">
-              {improved.map((m) => (
-                <div key={m.player.id} className="flex items-center gap-2 text-[11px]">
-                  <span className="font-bold text-ink truncate max-w-[100px]">{m.player.gamertag}</span>
+              {insights.mostImproved.map((m) => (
+                <div key={m.id} className="flex items-center gap-2 text-[11px]">
+                  <span className="font-bold text-ink truncate max-w-[100px]">{m.displayName || m.username}</span>
                   <span className="text-accent font-mono tabular-nums shrink-0">▲{m.delta}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
-        {fallers.length > 0 && (
+        {insights.biggestFallers.length > 0 && (
           <div className="shrink-0 rounded-[12px] border border-negative/15 bg-negative/5 px-3 py-2 min-w-[200px]">
             <p className="text-[8px] font-black tracking-[0.22em] uppercase text-negative/70 mb-1.5">📉 Biggest Fallers</p>
             <div className="space-y-1">
-              {fallers.map((m) => (
-                <div key={m.player.id} className="flex items-center gap-2 text-[11px]">
-                  <span className="font-bold text-ink truncate max-w-[100px]">{m.player.gamertag}</span>
+              {insights.biggestFallers.map((m) => (
+                <div key={m.id} className="flex items-center gap-2 text-[11px]">
+                  <span className="font-bold text-ink truncate max-w-[100px]">{m.displayName || m.username}</span>
                   <span className="text-negative font-mono tabular-nums shrink-0">▼{m.delta}</span>
                 </div>
               ))}

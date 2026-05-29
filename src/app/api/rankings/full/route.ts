@@ -12,9 +12,14 @@ export async function GET(req: NextRequest) {
   try {
     const offset = (page - 1) * limit;
 
-    let orderClause = "pr.rank_position ASC";
-    if (sort === "points") orderClause = `pr.points ${order === "desc" ? "DESC" : "ASC"}`;
-    else if (sort === "skillRating") orderClause = `ps.skill_rating ${order === "desc" ? "DESC" : "ASC"}`;
+    const allowedSorts: Record<string, string> = {
+      rank: "pr.rank_position ASC",
+      points: "pr.points DESC",
+      points_asc: "pr.points ASC",
+      skillRating: "ps.skill_rating DESC",
+      skillRating_asc: "ps.skill_rating ASC",
+    };
+    const orderClause = allowedSorts[`${sort}_${order}`] || allowedSorts[sort] || "pr.rank_position ASC";
 
     let whereClause = "";
     const args: any[] = [];
