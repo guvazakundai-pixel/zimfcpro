@@ -48,7 +48,9 @@ export async function GET(
       player2: { id: String(r.p2_id), username: String(r.p2_username), displayName: r.p2_display ? String(r.p2_display) : String(r.p2_username), avatarUrl: r.p2_avatar ? String(r.p2_avatar) : null },
       winner: r.w_id ? { id: String(r.w_id), username: String(r.w_username), displayName: String(r.w_display) } : null,
       club: r.c_id ? { id: String(r.c_id), name: String(r.c_name), tag: r.c_tag ? String(r.c_tag) : null } : null,
+      submittedById: String(r.submitted_by),
       submittedBy: r.sb_id ? { id: String(r.sb_id), username: String(r.sb_username) } : null,
+      approvedById: r.approved_by ? String(r.approved_by) : null,
       approvedBy: r.ab_id ? { id: String(r.ab_id), username: String(r.ab_username) } : null,
     };
     return NextResponse.json({ match });

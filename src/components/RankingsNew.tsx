@@ -321,6 +321,7 @@ export function RankingsClient({ livePlayers }: { livePlayers?: LivePlayer[] }) 
     setSheetOpen(true);
   }, []);
 
+  const [swipedId, setSwipedId] = useState<string | null>(null);
   const [challengeState, setChallengeState] = useState<Record<string, "idle" | "sending" | "sent" | "error">>({});
 
   const handleChallenge = useCallback((playerId: string, e?: React.MouseEvent) => {

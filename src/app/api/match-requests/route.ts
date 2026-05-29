@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/route-auth";
+import { sendNotification } from "@/lib/match-engine/notifications";
 
 const CreateSchema = z.object({
   receiverId: z.string().min(1),
@@ -117,6 +118,22 @@ export async function POST(req: Request) {
   await db.execute({
     sql: "INSERT INTO match_requests (id, sender_id, receiver_id, club_id, status, status_raw, message, expires_at, created_at, updated_at) VALUES (?, ?, ?, ?, 'PENDING', 'PENDING', ?, ?, ?, ?)",
     args: [id, auth.session.userId, receiverId, clubId ?? null, message ?? null, expiresAt, now, now],
+  });
+
+  const challenger = await db.execute({
+    sql: "SELECT username, display_name FROM users WHERE id = ?",
+    args: [auth.session.userId],
+  });
+  const challengerName = (challenger.rows[0] as Record<string, unknown> | undefined)?.display_name as string
+    || (challenger.rows[0] as Record<string, unknown> | undefined)?.username as string
+    || "Someone";
+
+  await sendNotification({
+    userId: receiverId,
+    type: "CHALLENGE",
+    title: "New Match Request!",
+    message: `${challengerName} challenged you to a match. Accept or decline now.`,
+    link: `/matches`,
   });
 
   return NextResponse.json({

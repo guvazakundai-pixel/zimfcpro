@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/route-auth";
+import { sendNotification } from "@/lib/match-engine/notifications";
 
 const PatchSchema = z.object({
   action: z.enum(["accept", "decline"]),
@@ -52,11 +53,22 @@ export async function PATCH(
   if (action === "accept") {
     const updated = await prisma.matchRequest.update({
       where: { id: requestId },
-      data: { status: "ACCEPTED", statusRaw: "ACCEPTED" },
+      data: { status: "ACCEPTED", statusRaw: "ACTIVE" },
       include: {
         sender: { select: playerSelect },
         receiver: { select: playerSelect },
         club: { select: clubSelect },
+      },
+    });
+
+    const matchReport = await prisma.matchReport.create({
+      data: {
+        player1Id: request.senderId,
+        player2Id: auth.session.userId,
+        clubId: request.clubId ?? undefined,
+        status: "ACTIVE",
+        statusRaw: "ACTIVE",
+        submittedById: request.senderId,
       },
     });
 
@@ -65,11 +77,19 @@ export async function PATCH(
         adminId: auth.session.userId,
         action: "MATCH_REQUEST_ACCEPT",
         target: `MATCH_REQUEST:${requestId}`,
-        details: { senderId: request.senderId },
+        details: { senderId: request.senderId, matchId: matchReport.id },
       },
     });
 
-    return NextResponse.json({ request: updated });
+    await sendNotification({
+      userId: request.senderId,
+      type: "CHALLENGE",
+      title: "Challenge Accepted!",
+      message: `${updated.receiver.displayName || updated.receiver.username} accepted your match request. The battle begins!`,
+      link: `/matches/${matchReport.id}`,
+    });
+
+    return NextResponse.json({ request: updated, matchId: matchReport.id });
   }
 
   if (action === "decline") {
@@ -90,6 +110,13 @@ export async function PATCH(
         target: `MATCH_REQUEST:${requestId}`,
         details: { senderId: request.senderId },
       },
+    });
+
+    await sendNotification({
+      userId: request.senderId,
+      type: "CHALLENGE",
+      title: "Challenge Declined",
+      message: `Your match request was declined.`,
     });
 
     return NextResponse.json({ request: updated });

@@ -142,34 +142,38 @@ export function calculateStandings(fixtures: FixtureData[]): StandingEntry[] {
     if (b.points !== a.points) return b.points - a.points;
     if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
     if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
-    const h2h = resolveHeadToHead(entries, fixtures);
-    if (h2h) return h2h;
+    const h2h = resolveHeadToHead(a, b, fixtures);
+    if (h2h !== 0) return h2h;
     return b.wins - a.wins;
   });
 
   return entries;
 }
 
-function resolveHeadToHead(entries: StandingEntry[], fixtures: FixtureData[]): number | null {
-  if (entries.length < 2) return null;
-  const [a, b] = entries;
+function resolveHeadToHead(a: StandingEntry, b: StandingEntry, fixtures: FixtureData[]): number {
   let aPts = 0;
   let bPts = 0;
+  let aGf = 0;
+  let bGf = 0;
   for (const f of fixtures) {
     if (f.status !== "COMPLETED" || f.homeScore === null || f.awayScore === null) continue;
     if (f.homeUserId === a.userId && f.awayUserId === b.userId) {
       if (f.homeScore > f.awayScore) aPts += 3;
       else if (f.homeScore < f.awayScore) bPts += 3;
       else { aPts += 1; bPts += 1; }
+      aGf += f.homeScore;
+      bGf += f.awayScore;
     }
     if (f.homeUserId === b.userId && f.awayUserId === a.userId) {
       if (f.homeScore > f.awayScore) bPts += 3;
       else if (f.homeScore < f.awayScore) aPts += 3;
       else { aPts += 1; bPts += 1; }
+      bGf += f.homeScore;
+      aGf += f.awayScore;
     }
   }
-  if (aPts === bPts) return null;
-  return bPts - aPts;
+  if (aPts !== bPts) return bPts - aPts;
+  return bGf - aGf;
 }
 
 export function getFormString(existingForm: string, result: "W" | "D" | "L"): string {

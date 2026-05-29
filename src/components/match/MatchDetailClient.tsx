@@ -29,7 +29,7 @@ interface MatchData {
   submittedById: string;
   approvedById: string | null;
   club: { id: string; name: string; tag: string | null } | null;
-  submittedBy: { id: string; username: string };
+  submittedBy: { id: string; username: string } | null;
   approvedBy: { id: string; username: string } | null;
   winner: { id: string; username: string; displayName: string | null } | null;
   confirmations: any;
@@ -391,7 +391,7 @@ export function MatchDetailClient({ matchId }: { matchId: string }) {
                 <span className="text-[9px] font-black tracking-[0.2em] uppercase text-gold">Action Required</span>
               </div>
               <p className="text-lg font-bold text-ink">
-                {match.submittedBy.username} reported: {match.score1} - {match.score2}
+                {(match.submittedBy?.username ?? "Unknown")} reported: {match.score1} - {match.score2}
               </p>
               <p className="text-[11px] text-muted-soft mt-1">Does this score match your result?</p>
             </div>
@@ -425,7 +425,7 @@ export function MatchDetailClient({ matchId }: { matchId: string }) {
         <div className="grid grid-cols-2 gap-3">
           <div className="frosted-card-sm p-4 text-center rounded-[16px]">
             <p className="text-[8px] font-black tracking-[0.2em] uppercase text-muted-faint">Submitted By</p>
-            <p className="text-sm font-bold text-ink mt-1">@{match.submittedBy.username}</p>
+            <p className="text-sm font-bold text-ink mt-1">@{match.submittedBy?.username ?? "N/A"}</p>
           </div>
           <div className="frosted-card-sm p-4 text-center rounded-[16px]">
             <p className="text-[8px] font-black tracking-[0.2em] uppercase text-muted-faint">Date</p>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/route-auth";
+import { sendNotification } from "@/lib/match-engine/notifications";
 
 export async function POST(
   req: Request,
@@ -60,8 +61,27 @@ export async function POST(
     db.execute({ sql: "SELECT skill_rating, win_streak, form_history FROM player_stats WHERE user_id = ?", args: [player1Id] }),
     db.execute({ sql: "SELECT skill_rating, win_streak, form_history FROM player_stats WHERE user_id = ?", args: [player2Id] }),
   ]);
-  const s1 = s1Res.rows[0] as Record<string, unknown> | undefined;
-  const s2 = s2Res.rows[0] as Record<string, unknown> | undefined;
+  let s1 = s1Res.rows[0] as Record<string, unknown> | undefined;
+  let s2 = s2Res.rows[0] as Record<string, unknown> | undefined;
+
+  if (!s1) {
+    await db.execute({
+      sql: `INSERT INTO player_stats (id, user_id, skill_rating, wins, losses, draws, matches_played, goals_scored, goals_conceded, points, form_score, win_streak, form_history, updated_at)
+            VALUES (?, ?, 1000, 0, 0, 0, 0, 0, 0, 0, 0, 0, '', datetime('now'))`,
+      args: [crypto.randomUUID(), player1Id],
+    });
+    const r1 = await db.execute({ sql: "SELECT skill_rating, win_streak, form_history FROM player_stats WHERE user_id = ?", args: [player1Id] });
+    s1 = r1.rows[0] as Record<string, unknown> | undefined;
+  }
+  if (!s2) {
+    await db.execute({
+      sql: `INSERT INTO player_stats (id, user_id, skill_rating, wins, losses, draws, matches_played, goals_scored, goals_conceded, points, form_score, win_streak, form_history, updated_at)
+            VALUES (?, ?, 1000, 0, 0, 0, 0, 0, 0, 0, 0, 0, '', datetime('now'))`,
+      args: [crypto.randomUUID(), player2Id],
+    });
+    const r2 = await db.execute({ sql: "SELECT skill_rating, win_streak, form_history FROM player_stats WHERE user_id = ?", args: [player2Id] });
+    s2 = r2.rows[0] as Record<string, unknown> | undefined;
+  }
 
   if (!s1 || !s2) {
     return NextResponse.json({ error: "Player stats not found — contact admin" }, { status: 500 });
@@ -113,6 +133,27 @@ export async function POST(
   ]);
 
   await recomputeRankingsSQL();
+
+  try {
+    const resultLabel = winnerId === player1Id ? "won" : winnerId === player2Id ? "lost" : "draw";
+    const resultLabel2 = winnerId === player2Id ? "won" : winnerId === player1Id ? "lost" : "draw";
+    await Promise.all([
+      sendNotification({
+        userId: player1Id,
+        type: "MATCH",
+        title: resultLabel === "won" ? "Victory!" : resultLabel === "lost" ? "Defeat" : "Draw",
+        message: `Match confirmed: ${score1}-${score2}. ${resultLabel === "won" ? "You won!" : resultLabel === "lost" ? "Better luck next time." : "Every point counts."}`,
+        link: `/matches/${matchId}`,
+      }),
+      sendNotification({
+        userId: player2Id,
+        type: "MATCH",
+        title: resultLabel2 === "won" ? "Victory!" : resultLabel2 === "lost" ? "Defeat" : "Draw",
+        message: `Match confirmed: ${score1}-${score2}. ${resultLabel2 === "won" ? "You won!" : resultLabel2 === "lost" ? "Better luck next time." : "Every point counts."}`,
+        link: `/matches/${matchId}`,
+      }),
+    ]);
+  } catch {}
 
   try {
     await db.execute({

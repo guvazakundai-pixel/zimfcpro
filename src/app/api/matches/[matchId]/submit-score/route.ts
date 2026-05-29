@@ -1,62 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/route-auth";
+import { submitScore } from "@/lib/match-engine/service";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ matchId: string }> }) {
   const { matchId } = await params;
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
-  const { score1, score2, screenshotUrl } = await req.json();
+  const body = await req.json().catch(() => null);
+  if (!body) return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
 
-  if (typeof score1 !== "number" || typeof score2 !== "number" || score1 < 0 || score2 < 0) {
+  const score = typeof body.score === "number" ? body.score : (typeof body.score1 === "number" ? body.score1 : -1);
+  const opponentScore = typeof body.opponentScore === "number" ? body.opponentScore : (typeof body.score2 === "number" ? body.score2 : -1);
+
+  if (score < 0 || opponentScore < 0) {
     return NextResponse.json({ error: "Invalid scores" }, { status: 400 });
   }
 
-  const match = await prisma.matchReport.findUnique({ where: { id: matchId } });
-  if (!match) return NextResponse.json({ error: "Match not found" }, { status: 404 });
-  if (match.statusRaw !== "PENDING") return NextResponse.json({ error: "Match already resolved" }, { status: 400 });
-  if (match.player1Id !== auth.session.userId && match.player2Id !== auth.session.userId) {
-    return NextResponse.json({ error: "Not your match" }, { status: 403 });
-  }
-
-  const winnerId = score1 > score2 ? match.player1Id : score2 > score1 ? match.player2Id : null;
-
-  const confirmations = {
-    ...((match.confirmations as Record<string, unknown>) || {}),
-    [auth.session.userId]: { score1, score2, screenshotUrl, submittedAt: new Date().toISOString() },
-  } as Prisma.InputJsonValue;
-
-  const playersSubmitted = Object.keys(confirmations).length;
-
-  if (playersSubmitted >= 2) {
-    await prisma.matchReport.update({
-      where: { id: matchId },
-      data: {
-        score1,
-        score2,
-        winnerId,
-        status: "COMPLETED",
-        statusRaw: "COMPLETED",
-        confirmations,
-        approvedById: auth.session.userId,
-        approvedAt: new Date(),
+  try {
+    const result = await submitScore({
+      matchId,
+      playerId: auth.session.userId,
+      score,
+      opponentScore,
+      screenshots: body.screenshots ?? (body.screenshot ? [body.screenshot] : []),
+      videoUrl: body.videoUrl,
+      rageQuit: body.rageQuit ?? false,
+      antiCheat: {
+        ipHash: "na",
+        deviceHash: "na",
+        userAgent: req.headers.get("user-agent") ?? "",
+        matchDuration: 0,
+        scoreSpeed: 0,
+        previousOpponents: [],
+        timeSinceLastMatch: 0,
+        flags: [],
       },
     });
-  } else {
-    await prisma.matchReport.update({
-      where: { id: matchId },
-      data: {
-        score1,
-        score2,
-        status: "AWAITING_CONFIRMATION",
-        statusRaw: "AWAITING_CONFIRMATION",
-        confirmations,
-        submittedById: auth.session.userId,
-      },
-    });
+    return NextResponse.json({ success: true, status: result.match.statusRaw, antiCheat: result.antiCheat });
+  } catch (e: any) {
+    const status = e.message?.includes("Invalid transition") ? 409 : 400;
+    return NextResponse.json({ error: e.message ?? "Failed to submit score" }, { status });
   }
-
-  return NextResponse.json({ success: true, status: playersSubmitted >= 2 ? "COMPLETED" : "AWAITING_CONFIRMATION" });
 }
