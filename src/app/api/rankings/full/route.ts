@@ -46,7 +46,12 @@ export async function GET(req: NextRequest) {
                     pr.rank_position, pr.points, pr.final_score
              FROM player_rankings pr
              JOIN users u ON u.id = pr.user_id
-             LEFT JOIN player_stats ps ON ps.user_id = u.id
+             LEFT JOIN (
+               SELECT user_id, wins, losses, draws, goals_scored, goals_conceded,
+                      skill_rating, win_streak, form_history, mvp_count
+               FROM player_stats
+               WHERE id IN (SELECT MIN(id) FROM player_stats GROUP BY user_id)
+             ) ps ON ps.user_id = u.id
              ${whereClause}
              AND pr.id IN (SELECT MIN(pr2.id) FROM player_rankings pr2 GROUP BY pr2.user_id)
              ORDER BY ${orderClause}

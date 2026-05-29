@@ -38,7 +38,13 @@ export async function GET(req: NextRequest) {
                    ft.team_name, ft.team_value, ft.budget, ft.transfers_used
             FROM player_rankings pr
             JOIN users u ON u.id = pr.user_id
-            LEFT JOIN player_stats ps ON ps.user_id = u.id
+            LEFT JOIN (
+              SELECT user_id, matches_played, wins, losses, draws,
+                     goals_scored, goals_conceded, skill_rating, points,
+                     form_score, win_streak, mvp_count, form_history
+              FROM player_stats
+              WHERE id IN (SELECT MIN(id) FROM player_stats GROUP BY user_id)
+            ) ps ON ps.user_id = u.id
             LEFT JOIN fantasy_teams ft ON ft.user_id = u.id
             ${whereClause}
             AND pr.id IN (SELECT MIN(pr2.id) FROM player_rankings pr2 GROUP BY pr2.user_id)
