@@ -37,6 +37,15 @@ export const metadata: Metadata = {
     "Zimbabwe gaming",
     "esports ZW",
   ],
+  icons: {
+    icon: [
+      { url: "/logo.png", type: "image/png", sizes: "751x697" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: [
+      { url: "/logo.png", type: "image/png" },
+    ],
+  },
   alternates: {
     canonical: SITE_URL,
   },

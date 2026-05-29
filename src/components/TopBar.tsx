@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useUser, useAuthModal } from "@/lib/auth-context";
 import { useAuthStore } from "@/store/auth-store";
 import { useThemeStore } from "@/lib/theme-store";
@@ -25,15 +26,14 @@ export function TopBar() {
       >
         <div className="mx-auto max-w-6xl px-4 sm:px-6 h-12 flex items-center justify-between gap-4 w-full min-w-0">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <span
-              className="inline-grid place-items-center h-7 w-7 rounded-[8px] text-accent font-display text-sm leading-none group-hover:shadow-[0_0_16px_rgba(0,255,133,0.2)] transition-all duration-300"
-              style={{
-                background: "linear-gradient(135deg, rgba(0,255,133,0.15) 0%, rgba(0,255,133,0.04) 100%)",
-                border: "1px solid rgba(0,255,133,0.25)",
-              }}
-            >
-              Z
-            </span>
+            <Image
+              src="/logo.png"
+              alt="ZIM FC PRO"
+              width={28}
+              height={28}
+              className="rounded-[6px] transition-all duration-300 group-hover:shadow-[0_0_16px_rgba(0,255,133,0.2)]"
+              priority
+            />
             <div className="leading-tight">
               <p className="cinematic-heading tracking-wider text-ink text-xs sm:text-sm">ZIM FCPRO</p>
               <p className="font-mono text-[8px] text-muted-faint tracking-wider">FC26 · ZW</p>
@@ -63,15 +63,14 @@ export function TopBar() {
     >
       <div className="mx-auto max-w-6xl px-4 sm:px-6 h-12 flex items-center justify-between gap-4 w-full min-w-0">
         <Link href="/" className="flex items-center gap-2.5 group">
-          <span
-            className="inline-grid place-items-center h-7 w-7 rounded-[8px] text-accent font-display text-sm leading-none group-hover:shadow-[0_0_16px_rgba(0,255,133,0.2)] transition-all duration-300"
-            style={{
-              background: "linear-gradient(135deg, rgba(0,255,133,0.15) 0%, rgba(0,255,133,0.04) 100%)",
-              border: "1px solid rgba(0,255,133,0.25)",
-            }}
-          >
-            Z
-          </span>
+          <Image
+            src="/logo.png"
+            alt="ZIM FC PRO"
+            width={28}
+            height={28}
+            className="rounded-[6px] transition-all duration-300 group-hover:shadow-[0_0_16px_rgba(0,255,133,0.2)]"
+            priority
+          />
           <div className="leading-tight">
             <p className="cinematic-heading tracking-wider text-ink text-xs sm:text-sm">ZIM FCPRO</p>
             <p className="font-mono text-[8px] text-muted-faint tracking-wider">FC26 · ZW</p>
